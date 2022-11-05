@@ -1,0 +1,439 @@
+three main types of failures:
+» Disk (storage media) failure
+» System crash
+» Transaction failure
+
+
+### http://www.scs.stanford.edu/20sp-cs244b/notes/  distributed system
+### http://www.scs.stanford.edu/20sp-cs244b/notes/
+## cs 149  PARALLEL COMPUTING 
+## cs 149  PARALLEL COMPUTING
+## cs 149  PARALLEL COMPUTING
+
+Isolation levels:
+» Level 1: Transaction may read uncommitted data; 
+successive reads to a record may return different values
+» Level 2: Transaction may only read committed data, but 
+successive reads can differ
+» Level 3: Successive reads return same value
+
+Locking:
+» Started with “predicate locks” based on expressions: 
+too expensive
+» Moved to hierarchical locks: record/page/table, with 
+read/write types and intentions
+
+
+
+Transactional DBMS: focus on concurrent, 
+small, low-latency transactions (e.g. MySQL, 
+Postgres, Oracle, DB2) → real-time apps
+Analytical DBMS: focus on large, parallel 
+but mostly read-only analytics (e.g. Teradata, 
+Redshift, Vertica) → “data warehouses
+
+
+Fixed Format
+A schema for all records in table specifies:
+- # of fields
+- type of each field
+- order in record
+- meaning of each field
+
+
+Placing Data for Efficient 
+Access
+Locality: which items are accessed together
+» When you read one field of a record, you’re 
+likely to read other fields of the same record
+» When you read one field of record 1, you’re 
+likely to read the same field of record 2
+Searchability: quickly find relevant records
+» E.g. sorting the file lets you do binary search
+
+
+
+Can We Have Hybrids 
+Between Row & Column?
+Yes! For example, colocated column groups: 
+
+
+Improving Searchability: 
+Ordering
+Ordering the data by a field will give:
+» Closer I/Os if queries tend to read data with 
+nearby values of the field (e.g. time ranges)
+» Option to accelerate search via an ordered 
+index (e.g. B-tree), binary search, etc
+
+
+Questions in Storing Records
+(1) separating records
+(2) spanned vs. unspanned
+(3) indirection
+
+
+C-Store
+
+
+Handling Duplicate Keys
+For a primary index, can point to 1st instance 
+of each item (assuming blocks are linked)
+For a secondary index, need to point to a list 
+of records since they can be anywhere
+
+
+k-d tree m dimension index
+Splits dimensions in any order 
+to hold k-dimensional data
+
+
+Wide range of indexes for different data 
+types and queries (e.g. range vs exact)
+Key concerns: query time, cost to update, 
+and size of index
+
+
+Execution Methods: Once We 
+Have a Plan, How to Run it?
+Several options that trade between 
+complexity, performance and startup time
+
+
+Outline
+What can we optimize?
+Rule-based optimization
+Data statistics
+Cost models
+Cost-based plan selection
+
+
+Join algorithms can have different 
+performance in different situations
+In general, the following are used:
+» Index join if an index exists
+» Merge join if at least one table is sorted
+» Hash join if both tables unsorted
+
+
+SQL standard defines serializability as “same 
+as a serial schedule”, but then also lists 3 
+types of “anomalies” to define levels:
+
+
+There are isolation levels other than 
+serializability that meet the last definition!
+» I.e. don’t exhibit those 3 anomalies
+Virtually no commercial DBs do serializability 
+by default, and some can’t do it at all
+Time to call the lawyers?
+
+
+Enforcing serializability via 2-phase locking
+» Shared and exclusive locks
+» Lock tables and multi-level locking
+
+
+Want schedules that are “good”, regardless of
+» initial state and
+» transaction semantics
+
+
+------------------------------
+Transactions
+Concurrency
+Transactions
+Concurrency
+Transactions
+Concurrency
+------------------------------
+
+the eight fallacies of distributed computing
+the eight fallacies of distributed computing
+the eight fallacies of distributed computing
+
+
+Replication
+Store each data item on multiple nodes!
+
+
+
+Traditional DB: page the DBA
+Distributed computing: use consensus
+» Several algorithms: Paxos, Raft
+» Today: many implementations
+• Apache Zookeeper, etcd, Consul
+» Idea: keep a reliable, distributed shared 
+record of who is “primary”
+
+
+Two Phase Commit (2PC)
+1. Transaction coordinator sends prepare
+message to each participating node
+2. Each participating node responds to 
+coordinator with prepared or no
+3. If coordinator receives all prepared:
+» Broadcast commit
+4. If coordinator receives any no:
+» Broadcast abort
+
+
+Traditionally: run 2PC at commit time
+» i.e., perform locking as usual, then run 2PC 
+to have all participants agree that the 
+transaction will commit
+Under strict 2PL, run 2PC before unlocking 
+the write locks
+
+Two-phase locking
+
+2PL: piggyback lock “unlock” commands on 
+commit/abort message
+
+Case 2: Coordinator 
+Unavailable
+Participants cannot make progress
+But: can agree to elect a new coordinator, 
+never listen to the old one (using consensus)
+» Old coordinator comes back? Overruled by 
+participants, who reject its messages
+
+
+CAP Theorem
+In an asynchronous network, a distributed 
+database can either:
+» guarantee a response from any replica in a 
+finite amount of time (“availability”) OR
+» guarantee arbitrary “consistency” 
+criteria/constraints about data
+but not both
+
+
+“CAP” is a reminder:
+» No free lunch for distributed systems
+
+
+CAP Theorem
+Choose either:
+» Consistency and “Partition tolerance” (CP)
+» Availability and “Partition tolerance” (AP)
+Example consistency criteria:
+» Exactly one key can have value “Matei”
+CAP is a reminder: no free lunch for 
+distributed systems
+
+
+Let’s Talk About Coordination
+If we’re “AP”, then we don’t have to talk 
+even when we can!
+If we’re “CP”, then we have to talk all the 
+time
+How fast can we send messages
+
+
+Punchlines:
+Serializability has a provable cost to latency, 
+availability, scalability (if there are conflicts)
+We can avoid this penalty if we are willing to 
+look at our application and our application 
+does not require coordination
+» Major topic of ongoing research
+
+
+
+coordination avoidance in database systems
+coordination avoidance in database systems
+
+
+lessons from internet services: ACID vs. BASE
+lessons from internet services: ACID vs. BASE
+
+
+Avoiding Coordination
+Key techniques for BASE:
+» Partition data so that most transactions are 
+local to one partition
+» Tolerate stale data (eventual consistency):
+• Caches
+• Weaker isolation levels
+• Helpful ideas: idempotence, commutativity
+
+
+
+BASE EXAMPLE 
+Constraint: each 
+user’s amt_sold and 
+amt_bought is sum of 
+their transactions
+ACID Approach: to add a transaction, use 2PC to 
+update transactions table + records for buyer, seller
+One BASE approach: write new transactions to the 
+transactions table and use a periodic batch job to fill 
+in the users table
+
+
+Helpful Ideas
+When we delay applying updates to an item, 
+must ensure we only apply each update once
+» Issue if we crash while applying!
+» Idempotent operations: same result if you 
+apply them twice
+When different nodes want to update multiple 
+items, want result independent of msg order
+» Commutative operations: A⍟B = B⍟A
+
+
+Amdahl’s Law
+If p is the fraction of the program that can be 
+made parallel, running time with N nodes is
+T(n) = 1 - p + p/N
+Result: max possible speedup is 1 / (1 - p)
+Example: 80% parallelizable ⇒ 5x speedup
+
+
+Example System Designs
+Traditional “massively parallel” DBMS
+» Tables partitioned evenly across nodes
+» Each physical operator also partitioned
+» Pipelining across these operators
+MapReduce
+» Focus on unreliable, commodity nodes
+» Divide work into idempotent tasks, and use 
+dynamic algorithms for load balancing, fault 
+recovery and straggler recovery
+
+
+Example: Distributed Joins
+Say we want to compute A ⨝ B, where A 
+and B are both partitioned across N nodes:
+
+
+Example: Distributed Joins
+Say we want to compute A ⨝ B, where A 
+and B are both partitioned across N nodes
+Algorithm 1: shuffle hash join
+» Each node hashes records of A, B to N 
+partitions by key, sends partition i to node i
+» Each node then joins the records it received
+Communication cost: (N-1)/N (|A| + |B|)
+
+
+Algorithm 2: broadcast join on B
+» Each node broadcasts its partition of B to all 
+other nodes
+» Each node then joins B against its A partition
+
+Takeaway
+Broadcast join is much faster if |B| ≪ |A|
+
+
+Handling Faults & Stragglers
+If uncommon, just ignore / call the operator / 
+restart query
+Problem: probability of something bad 
+grows fast with number of nodes
+» E.g. if one node has 0.1% probability of 
+straggling, then with 1000 nodes,
+P(none straggles) = (1 - 0.001)1000 ≈ 0.3
+
+
+Straggler Recovery Methods
+General idea: send the slow request/task to 
+another node (launch a “backup task”)
+Threshold approach: if a task is slower than 
+99th percentile, or 1.5x avg, etc, launch backup
+Progress-based approach:
+estimate task finish times and launch
+tasks likeliest to finish last
+
+
+What is Cloud Computing?
+Computing as a service, managed by an 
+external party
+» Software as a Service (SaaS): application 
+hosted by a provider, e.g. Salesforce, Gmail
+» Platform as a Service (PaaS): APIs to 
+program against, e.g. DB or web hosting
+» Infrastructure as a Service (IaaS): raw 
+computing resources, e.g. VMs on AW
+
+
+Dynamo Implementation
+Commodity nodes with local 
+storage on disks
+Nodes form a “ring” to split up 
+the key space among them
+» Actually, each node covers 
+many ranges (over-partitioning)
+Use quorums and gossip to 
+manage updates to each key
+
+
+Just run an existing DBMS (e.g. MySQL) on 
+cloud VMs, and use replicated disk storage
+
+
+Aurora’s Design
+Implement replication at a higher level: only 
+replicate the redo log (not disk blocks)
+Enable elastic frontend and backend by 
+decoupling API & storage servers
+» Lower cost & higher performance per tenant
+
+
+Design Details
+Logging uses async quorum: wait until 4 of 6 
+nodes reply (faster than waiting for all 6)
+Each storage node takes
+the log and rebuilds the
+DB pages locally
+Care taken to handle
+incomplete logs due
+to async quorums
+
+Delta Lake Motivation
+
+
+Delta Lake Motivation
+Object stores are the largest & lowest-cost 
+storage systems, but their semantics make it 
+hard to manage mutable datasets
+Goal: analytical table storage over object 
+stores, built as a client library (no other services)
+Interface: relational tables with SQL queries
+Consistency: serializable ACID transactions
+
+
+CQL = Continuous Query Language; 
+research project by our dean Jennifer 
+Widom
+
+
+More recent API, used at Google and open 
+sourced (API only) as Apache Beam
+
+
+Heap File Implementation 
+
+
+定长记录， 插入中间， 得移动顺序？
+
+
+Clustered/Unclustered 
+• Primary index = clustered by definition 
+• Secondary indexes = usually unclustered 
+
+
+R tree index空间划分树
+
+Canonical database search tree 
+• Balanced tree with high fanout
+• Leaf nodes contain pointers to actual data 
+• Leaf nodes stored as a linked list 
+• Internal nodes used as a directory 
+– Contain <key,pointers> pairs 
+– If key consistent with query, data may be found if we follow pointer 
+– Generalized search key: predicate that holds for each entry below key 
+• B+-tree key is pair of integers <a,b> and predicate is Contains([a,b),v) 
+• R-tree key is bounding box and predicate is also containment test 
+– Generalized search tree: hierarchy of partitions 
