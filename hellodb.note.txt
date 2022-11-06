@@ -4,6 +4,20 @@ three main types of failures:
 » Transaction failure
 
 
+The following book is required for the class. A few lectures will review material from this textbook and will include readings from this book. Please make sure to get the third edition of this book.
+
+Database Management Systems, 3rd Edition. Raghu Ramakrishnan and Johannes Gehrke.
+The following are additional books that you may find useful:
+
+Foundations of Databases (Abiteboul, Hull & Vianu)
+Database Systems: the complete book (Ullman, Widom and Garcia-Molina)
+Parallel and Distributed DBMS (Ozsu and Valduriez)
+Transaction Processing (Gray and Reuter)
+Data and Knowledge based Systems (volumes I, II) (Ullman)
+Data on the Web (Abiteboul, Buneman, Suciu)
+Readings in Database Systems (4th and 3rd ed) (Stonebraker and Hellerstein)
+Proceedings of SIGMOD, VLDB, ICDE, and CIDR conferences.
+
 ### http://www.scs.stanford.edu/20sp-cs244b/notes/  distributed system
 ### http://www.scs.stanford.edu/20sp-cs244b/notes/
 ## cs 149  PARALLEL COMPUTING 
@@ -437,3 +451,149 @@ Canonical database search tree
 • B+-tree key is pair of integers <a,b> and predicate is Contains([a,b),v) 
 • R-tree key is bounding box and predicate is also containment test 
 – Generalized search tree: hierarchy of partitions 
+
+
+
+• Union
+– Once a key is inserted, need to adjust predicates at parent nodes 
+– See algorithm AdjustKeys(R,N) 
+– B+-tree: computes interval that covers all given intervals 
+– R-tree: computes bigger bounding box 
+
+
+• Step 3: Query optimization
+– Find an efficient query plan for executing the query 
+– We will spend a whole lecture on this topic 
+• A query plan is
+– Logical query plan: an extended relational algebra tree 
+– Physical query plan: with additional annotations at each node 
+• Access method to use for each relation 
+• Implementation to use for each relational operator 
+
+
+Extended Algebra Operators 
+• Union ∪, intersection ∩, difference - 
+• Selection σ
+• Projection π
+• Join 
+• Duplicate elimination δ
+• Grouping and aggregation γ
+• Sorting τ
+• Rename ρ
+
+
+• Most optimizers operate on individual query blocks 
+• A query block is an SQL query with no nesting 
+– Exactly one
+• SELECT clause 
+• FROM clause
+– At most one
+• WHERE clause 
+• GROUP BY clause 
+• HAVING clause
+
+
+• Logical query plan with extra annotations 
+• Access path selection for each relation 
+– Use a file scan or use an index 
+• Implementation choice for each operator 
+• Scheduling decisions for operators
+
+
+Why Learn About Op Algos? 
+• Implemented in commercial DBMSs
+• Different DBMSs implement different subsets of these 
+algorithms 
+• Good algorithms can greatly improve performance 
+• Need to know about physical operators to understand 
+query optimization
+
+
+Cost Parameters 
+• In database systems the data is on disk 
+• Cost = total number of I/Os
+• Parameters: 
+– B(R) = # of blocks (i.e., pages) for relation R 
+– T(R) = # of tuples in relation R 
+– V(R, a) = # of distinct values of attribute a 
+
+
+ Cost of an operation = number of disk I/Os to 
+– read the operands 
+– compute the result 
+• Cost of writing the result to disk is not included
+– Need to count it separately when applicable
+
+• Clustered relation R: 
+– Blocks consists mostly of records from this table 
+– B(R) ≈ T(R) / blockSize 
+• Unclustered relation R: 
+– Its records are placed on blocks with other tables 
+– When R is unclustered: B(R) ≈ T(R) 
+
+
+Clustered relation: 
+– Result may be unsorted: B(R) 
+– Result needs to be sorted: 3B(R) 
+• Unclustered relation 
+– Unsorted: T(R) 
+– Sorted: T(R) + 2B(R)
+
+
+Join Algorithms 
+• Logical operator: 
+– Product(pname, cname) ⋈ Company(cname, city) 
+• Propose three physical operators for the join, assuming 
+the tables are in main memory: 
+– Hash join 
+– Nested loop join
+– Sort-merge join
+
+
+Hash Join 
+Hash join: R ⋈ S 
+• Scan R, build buckets in main memory 
+• Then scan S and join 
+• Cost: B(R) + B(S) 
+• One pass algorithm when B(R) <= M （memory?）
+
+
+Nested Loop Joins 
+• Tuple-based nested loop R ⋈ S 
+• R is the outer relation, S is the inner relation 
+• Cost: B(R) + T(R) B(S) when S is clustered 
+• Cost: B(R) + T(R) T(S) when S is unclustered 
+for each tuple r in R do 
+ for each tuple s in S do 
+	 if r and s join then output (r,s) 
+
+
+• Steps involved in processing a query 
+– Logical query plan 
+– Physical query plan 
+– Query execution overview 
+• Operator implementations 
+– One pass algorithms 
+– Two-pass algorithms 
+– Index-based algorithms 
+
+
+Two-Pass Algorithms 
+• What if data does not fit in memory? 
+• Need to process it in multiple passes 
+• Two key techniques 
+– Hashing 
+– Sorting
+
+
+Query Optimization Algorithm
+• For a query 
+– There exists many physical query plans 
+– Query optimizer needs to pick a good one 
+• Basic query optimization algorithm 
+– Enumerate alternative plans 
+– Compute estimated cost of each plan
+• Compute number of I/Os 
+• Optionally take into account other resources 
+– Choose plan with lowest cost 
+– This is called cost-based optimization
