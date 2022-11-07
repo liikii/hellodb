@@ -4,6 +4,8 @@ three main types of failures:
 » Transaction failure
 
 
+Database Management Systems, 3rd Edition
+by Raghu Ramakrishnan and Johannes Gehrke
 The following book is required for the class. A few lectures will review material from this textbook and will include readings from this book. Please make sure to get the third edition of this book.
 
 Database Management Systems, 3rd Edition. Raghu Ramakrishnan and Johannes Gehrke.
@@ -597,3 +599,193 @@ Query Optimization Algorithm
 • Optionally take into account other resources 
 – Choose plan with lowest cost 
 – This is called cost-based optimization
+
+
+
+Access path selectivity is the number of pages 
+retrieved if we use this access path
+– Most selective retrieves fewest pages 
+• As we saw earlier, for equality predicates
+– Selection on equality: σa=v(R) 
+– V(R, a) = # of distinct values of attribute a 
+– 1/V(R,a) is thus the reduction factor 
+– Clustered index on a: cost B(R)/V(R,a) 
+– Unclustered index on a: cost T(R)/V(R,a) 
+– (we are ignoring I/O cost of index pages for simplicity)
+
+
+
+Selection on range: σa>v(R) 
+• How to compute the selectivity?
+• Assume values are uniformly distributed
+• Reduction factor X 
+• X = (Max(R,a) - v) / (Max(R,a) - Min(R,a)) 
+• Clustered index on a: cost B(R)*X 
+• Unclustered index on a: cost T(R)*X
+
+
+• Selection condition: sid > 300 ∧ scity=‘Seattle’ 
+– Index I1: B+-tree on sid clustered 
+– Index I2: B+-tree on scity unclustered 
+• Let’s assume 
+– V(Supplier,scity) = 20 
+– Max(Supplier, sid) = 1000, Min(Supplier,sid)=1 
+– B(Supplier) = 100, T(Supplier) = 1000 
+• Cost I1: B(R) * (Max-v)/(Max-Min) = 100*700/999 ≈ 70 
+• Cost I2: T(R) * 1/V(Supplier,scity) = 1000/20 = 50 
+
+
+• For each operator compute
+– Estimate cost of executing the operation
+– Estimate statistical summary of the output data
+
+
+Relational Algebra Equivalences 
+• Selects, projects, and joins 
+– We can commute and combine all three types of operators 
+– We just have to be careful that the fields we need are available 
+when we apply the operator
+– Relatively straightforward. See book 15.3. 
+• If you like this topic, more info in optional paper (by 
+Chaudhuri), Section 4. 
+
+
+Plan Enumeration Algorithm 
+• Idea: use dynamic programming
+• For each subset of {R1, …, Rn}, compute the best plan 
+for that subset 
+• In increasing order of set cardinality: 
+– Step 1: for {R1}, {R2}, …, {Rn} 
+– Step 2: for {R1,R2}, {R1,R3}, …, {Rn-1, Rn} 
+– … 
+– Step n: for {R1, …, Rn} 
+• It is a bottom-up strategy 
+• A subset of {R1, …, Rn} is also called a subquery 
+
+
+ Turing awards to database researchers: 
+– Charles Bachman 1973 
+– Edgar Codd 1981 for inventing relational dbs
+– Jim Gray 1998 for inventing transactions 
+
+
+ACID Properties 
+• Atomicity: Either all changes performed by transaction 
+occur or none occurs 
+• Consistency: A transaction as a whole does not violate 
+integrity constraints 
+• Isolation: Transactions appear to execute one after the 
+other in sequence 
+• Durability: If a transaction commits, its changes will survive 
+failures
+
+
+Why is it hard to provide ACID properties? 
+• Concurrent operations 
+– Isolation problems 
+– We saw one example earlier 
+• Failures can occur at any time 
+– Atomicity and durability problems 
+– Next lecture 
+• Transaction may need to abort
+
+
+Types of Problems: Summary 
+• Concurrent execution problems
+– Write-read conflict: dirty read
+• A transaction reads a value written by another transaction that has 
+not yet committed 
+– Read-write conflict: unrepeatable read
+• A transaction reads the value of the same object twice. Another 
+transaction modifies that value in between the two reads 
+– Write-write conflict: lost update
+• Two transactions update the value of the same object. The second 
+one to write the value overwrite the first change 
+
+
+
+Deadlocks 
+• Two or more transactions are waiting for each other to 
+complete 
+• Deadlock avoidance
+– Acquire locks in pre-defined order 
+– Acquire all locks at once before starting 
+• Deadlock detection
+– Timeouts 
+– Wait-for graph 
+• This is what commercial systems use (they check graph periodically
+
+
+Degrees of Isolation 
+• Isolation level “serializable” (i.e. ACID) 
+– Golden standard 
+– Requires strict 2PL and predicate locking 
+– But often too inefficient 
+– Imagine there are only a few update operations and many long 
+read operations 
+• Weaker isolation levels 
+– Sacrifice correctness for efficiency 
+– Often used in practice (often default) 
+– Sometimes are hard to understand 
+
+
+Four levels of isolation
+– All levels use long-duration exclusive locks
+– READ UNCOMMITTED: no read locks 
+– READ COMMITTED: short duration read locks 
+– REPEATABLE READ: 
+• Long duration read locks on individual items 
+– SERIALIZABLE: 
+• All locks long duration and lock predicates
+
+
+Lock Granularity 
+• Fine granularity locking (e.g., tuples) 
+– High concurrency 
+– High overhead in managing locks 
+• Coarse grain locking (e.g., tables) 
+– Many false conflicts 
+– Less overhead in managing locks 
+• Alternative techniques 
+– Hierarchical locking (and intentional locks) [commercial DBMSs] 
+– Lock escalation 
+
+
+The Tree Protocol 
+Rules: 
+• A lock on a node A may only be acquired if the transaction holds a 
+lock on its parent B 
+• Nodes can be unlocked in any order (no 2PL necessary) 
+• Cannot relock a node for which already released a lock 
+• “Crabbing” 
+– First lock parent then lock child 
+– Keep parent locked only if may need to update it 
+– Release lock on parent if child is not full
+• The tree protocol is NOT 2PL, yet ensures conflict-serializability !
+
+
+Optimistic Concurrency Control 
+Validation-based technique 
+• Phase 1: Read
+– Transaction reads from database and writes to a private workspace 
+• Phase 2: Validate 
+– At commit time, system performs validation 
+– Validation checks if transaction could have conflicted with others 
+• Each transaction gets a timestamp 
+• Check if timestamp order is equivalent to a serial order 
+– If there is a potential conflict: abort 
+• Phase 3: Write 
+– If no conflict, transaction changes are copied into database
+
+
+Optimistic Concurrency Control 
+Timestamp-based technique 
+• Each object, O, has read and write timestamps: RTS(O) and WTS(O) 
+• Each transaction, T, has a timestamp TS(T) 
+• Transaction wants to read object O
+– If TS(T) < WTS(O) abort 
+– Else read and update RTS(O) to larger of TS(T) or RTS(O) 
+• Transaction wants to write object O
+– If TS(T) < RTS(O) abort 
+– If TS(T) < WTS(O) ignore my write and continue (Thomas Write Rule) 
+– Otherwise, write O and update WTS(O) to TS(T) 
