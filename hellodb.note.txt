@@ -789,3 +789,95 @@ Timestamp-based technique
 – If TS(T) < RTS(O) abort 
 – If TS(T) < WTS(O) ignore my write and continue (Thomas Write Rule) 
 – Otherwise, write O and update WTS(O) to TS(T) 
+
+
+Multiversion-based technique 
+• Object timestamps: RTS(O) & WTS(O); transaction timestamps TS(T) 
+• Transaction can read most recent version that precedes TS(T) 
+– When reading object, update RTS(O) to larger of TS(T) or RTS(O) 
+• Transaction wants to write object O
+– If TS(T) < RTS(O) abort 
+– Otherwise, create a new version of O with WTS(O) = TS(T) 
+• Common variant (used in commercial systems) 
+– To write object O only check for conflicting writes not reads 
+– Use locks for writes to avoid aborting in case conflicting transaction aborts
+
+
+Buffer Manager Policies 
+• STEAL or NO-STEAL
+– Can an update made by an uncommitted transaction overwrite the most 
+recent committed value of a data item on disk? 
+• FORCE or NO-FORCE
+– Should all updates of a transaction be forced to disk before the 
+transaction commits? 
+• Easiest for recovery: NO-STEAL/FORCE 
+• Highest performance: STEAL/NO-FORCE 
+
+
+Solution: Use a Log 
+• Log: append-only file containing log records
+• Enables the use of STEAL and NO-FORCE 
+• For every update, commit, or abort operation 
+– Write physical, logical, or physiological log record 
+– Note: multiple transactions run concurrently, log records are 
+interleaved 
+• After a system crash, use log to: 
+– Redo some transaction that did commit 
+– Undo other transactions that didn’t commit 
+
+
+Write-Ahead Log 
+• All log records pertaining to a page are written to disk 
+before the page is overwritten on disk 
+• All log records for transaction are written to disk before
+the transaction is considered committed 
+– Why is this faster than FORCE policy? 
+• Committed transaction: transactions whose commit log 
+record has been written to disk
+
+
+ARIES Method 
+• Write-Ahead Log 
+• Three pass algorithm 
+– Analysis pass 
+• Figure out what was going on at time of crash 
+• List of dirty pages and active transactions 
+– Redo pass (repeating history principle)
+• Redo all operations, even for transactions that will not commit 
+• Get back to state at the moment of the crash 
+– Undo pass
+• Remove effects of all uncommitted transactions 
+• Log changes during undo in case of another crash during undo
+
+
+log sequence number (LSN)
+
+performance metrics for parallel dbms
+• Speedup 
+– More processors  higher speed
+• Scalup
+– More processors  can process more data 
+– Transaction scaleup vs batch scaleup
+• Challenges to speedup and scalup
+– Startup cost: cost of starting an operation on many processors 
+– Interference: contention for resources between processors 
+– Skew: slowest step becomes the bottleneck
+
+
+Architectures for Parallel Databases 
+• Shared memory 
+• Shared disk 
+• Shared nothing 
+
+
+Taxonomy for 
+Parallel Query Evaluation 
+• Inter-query parallelism 
+– Each query runs on one processor 
+• Inter-operator parallelism 
+– A query runs on multiple processors 
+– An operator runs on one processor 
+• Intra-operator parallelism 
+– An operator runs on multiple processors 
+13 
+We study only intra-operator parallelism: most scalable
