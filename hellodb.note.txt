@@ -881,3 +881,18 @@ Parallel Query Evaluation
 – An operator runs on multiple processors 
 13 
 We study only intra-operator parallelism: most scalable
+
+
+Properties of a consensus protocol
+• A consensus protocol provides safety if...
+- Agreement – All outputs produced have the same value, and
+- Validity – The output value equals one of the agents’ inputs
+• A consensus protocol provides liveness if...
+- Termination – Eventually non-failed agents output a value
+• A consensus protocol provides fault tolerance if...
+- It can survive the failure of an agent at any point
+- Fail-stop protocols handle agent crashes
+- Byzantine-fault-tolerant protocols handle arbitrary agent behavior
+Theorem (FLP impossibility result)
+No deterministic consensus protocol provides all three of safety,
+liveness, and fault tolerance in an asynchronous system.
