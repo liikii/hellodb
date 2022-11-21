@@ -1481,3 +1481,115 @@ Apache HBase
 1.7%
 
 =============================================
+
+
+
+Covering Indexes
+
+
+Slow Query Basics: Optimize Data Access
+The most basic reason a query doesn’t perform well is because it’s working with too
+much data. Some queries just have to sift through a lot of data, which can’t be helped.
+That’s unusual, though; most bad queries can be changed to access less data. We’ve
+found it useful to analyze a poorly performing query in two steps:
+1. Find out whether your application is retrieving more data than you need. That
+usually means it’s accessing too many rows, but it might also be accessing too
+many columns.
+2. Find out whether the MySQL server is analyzing more rows than it needs.
+
+
+
+Here are a few typical mistakes:
+
+Fetching more rows than needed
+Fetching all columns from a multitable join
+Fetching all columns
+Fetching the same data repeatedly
+
+
+ In MySQL, the simplest
+query cost metrics are:
+• Response time
+• Number of rows examined
+• Number of rows returned
+
+
+
+If you find that a huge number of rows were examined to produce relatively few rows
+in the result, you can try some more sophisticated fixes:
+• Use covering indexes, which store data so that the storage engine doesn’t have to
+retrieve the complete rows. (We discussed these in Chapter 7.)
+• Change the schema. An example is using summary tables (discussed in
+Chapter 6).
+• Rewrite a complicated query so the MySQL optimizer is able to execute it opti‐
+mally. (We discuss this later in this chapter.)
+
+
+
+At a high level, replication is a simple three-part process:
+1. The source records changes to its data in its binary log as “binary log events.”
+2. The replica copies the source’s binary log events to its own local relay log.
+3. The replica replays the events in the relay log, applying the changes to its own
+data.
+
+
+
+
+Fundamental operations to retrieve
+and manipulate tuples in a relation.
+→ Based on set algebra.
+Each operator takes one or more
+relations as its inputs and outputs a
+new relation.
+→ We can "chain" operators together to create
+more complex operations.
+
+
+Data Manipulation Language (DML)
+Data Definition Language (DDL)
+Data Control Language (DCL)
+
+
+
+group by 
+Project tuples into subsets and 
+calculate aggregates against
+each subset.
+
+
+Non-aggregated values in SELECT output clause 
+must appear in GROUP BY clause.
+
+having 对 group by 进行过滤
+Filters results based on aggregation computation.
+Like a WHERE clause for a GROUP BY
+
+
+NESTED QUERIES
+Queries containing other queries.
+They are often difficult to optimize. 
+Inner queries can appear (almost) anywhere in 
+query.
+
+
+
+ALL→ Must satisfy expression for all rows in the 
+sub-query.
+ANY→ Must satisfy expression for at least one row 
+in the sub-query.
+IN→ Equivalent to '=ANY()' .
+EXISTS→ At least one row is returned.
+
+
+SEQUENTIAL VS. RANDOM ACCESS
+
+
+SYSTEM DESIGN GOALS
+Allow the DBMS to manage databases that exceed 
+the amount of memory available.
+Reading/writing to disk is expensive, so it must be 
+managed carefully to avoid large stalls and 
+performance degradation.
+Random access on disk is usually much slower 
+than sequential access, so the DBMS will want to 
+maximize sequential access.
