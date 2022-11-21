@@ -1593,3 +1593,289 @@ performance degradation.
 Random access on disk is usually much slower 
 than sequential access, so the DBMS will want to 
 maximize sequential access.
+
+
+WHY NOT USE THE OS?
+There are some solutions to this 
+problem:
+→ madvise: Tell the OS how you expect to 
+read certain pages.
+→ mlock: Tell the OS that memory ranges 
+cannot be paged out.
+→ msync: Tell the OS to flush memory 
+ranges out to disk.
+
+
+
+DBMS (almost) always wants to control things 
+itself and can do a better job at it.
+→ Flushing dirty pages to disk in the correct order.
+→ Specialized prefetching.
+→ Buffer replacement policy.
+→ Thread/process scheduling.
+The OS is not your friend
+
+
+
+重点2 database storage
+Problem #1: How the DBMS represents the 
+database in files on disk.
+Problem #2: How the DBMS manages its memory 
+and move data back-and-forth from disk.
+
+
+
+The DBMS stores a database as one or more files 
+on disk typically in a proprietary format.
+→ The OS doesn't know anything about the contents of 
+these files.
+Early systems in the 1980s used custom filesystems 
+on raw storage.
+→ Some "enterprise" DBMSs still support this.
+→ Most newer DBMSs do not do this.
+数据库有用os文件系统的， 有自制文件系统的
+
+
+The storage manager is responsible for 
+maintaining a database's files.
+→ Some do their own scheduling for reads and writes to 
+improve spatial and temporal locality of pages.
+It organizes the files as a collection of pages.
+→ Tracks data read/written to pages.
+→ Tracks the available space.
+
+
+A page is a fixed-size block of data.
+→ It can contain tuples, meta-data, indexes, log records…
+→ Most systems do not mix page types.
+→ Some systems require a page to be self-contained.
+Each page is given a unique identifier.
+→ The DBMS uses an indirection layer to map page ids to 
+physical locations.
+
+
+HEAP FILE: LINKED LIST
+Maintain a header page at the 
+beginning of the file that stores two 
+pointers:
+→ HEAD of the free page list.
+→ HEAD of the data page list.
+Each page keeps track of how many 
+free slots they currently have.
+
+数据库heap文件页的第一页为页统计状态page文件
+HEAP FILE: PAGE DIRECTORY
+The DBMS maintains special pages 
+that tracks the location of data pages 
+in the database files.
+The directory also records the number 
+of free slots per page.
+The DBMS must make sure that the 
+directory pages are in sync with the 
+data pages.
+
+
+
+PAGE LAYOUT
+For any page storage architecture, we now need to 
+decide how to organize the data inside of the page.
+→ We are still assuming that we are only storing tuples.
+How to store tuples in a page?
+Strawman Idea: Keep track of the 
+number of tuples in a page and then 
+just append a new tuple to the end.
+→ What happens if we delete a tuple?
+→ What happens if we have a variablelength attribute?
+
+
+
+把 tuple加到后边， 
+删除可能涉及顺序 重整 
+可变长page前是索引 page后边是tuple, tuple从后往前， 索引从前往后。 
+
+
+The DBMS needs a way to keep track 
+of individual tuples.
+Each tuple is assigned a unique record 
+identifier.
+→ Most common: page_id + offset/slot
+→ Can also contain file location info. 
+An application cannot rely on these 
+ids to mean anything.
+
+反正规化， 把相干的关系放在一起
+Can physically denormalize (e.g., "pre 
+join") related tuples and store them 
+together in the same page.
+→ Potentially reduces the amount of I/O for 
+common workload patterns.
+→ Can make updates more expensive.
+
+
+
+Not a new idea.
+→ IBM System R did this in the 1970s.
+→ Several NoSQL DBMSs do this without 
+calling it physical denormalization.
+
+
+日志型文件组织形式
+LOG-STRUCTURED FILE ORGANIZATION
+Instead of storing tuples in pages, the 
+DBMS only stores log records.
+The system appends log records to the 
+file of how the database was modified:
+→ Inserts store the entire tuple.
+→ Deletes mark the tuple as deleted.
+→ Updates contain the delta of just the 
+attributes that were modified.
+
+
+To read a record, the DBMS scans the 
+log backwards and "recreates" the 
+tuple to find what it needs.
+Build indexes to allow it to jump to 
+locations in the log.
+Periodically compact the log.
+
+周期性压缩日志
+
+hbase cassandra, leveldb, rocksdb
+
+大类型没保护
+EXTERNAL VALUE STORAGE
+Some systems allow you to store a 
+really large value in an external file.
+Treated as a BLOB type.
+→ Oracle: BFILE data type
+→ Microsoft: FILESTREAM data type
+The DBMS cannot manipulate the 
+contents of an external file.
+→ No durability protections.
+→ No transaction protections.
+
+
+
+A DBMS stores meta-data about databases in its 
+internal catalogs.
+→ Tables, columns, indexes, views
+→ Users, permissions
+→ Internal statistics
+Almost every DBMS stores databases' catalogs in 
+another database.
+→ Wrap object abstraction around tuples.
+→ Specialized code for "bootstrapping" catalog tables.
+
+
+On-Line Transaction Processing (OLTP)
+→ Fast operations that only read/update a small amount of 
+data each time. 
+On-Line Analytical Processing (OLAP)
+→ Complex queries that read a lot of data to compute 
+aggregates.
+Hybrid Transaction + Analytical Processing
+→ OLTP + OLAP together on the same database instance
+
+
+Open-source
+Apache Pinot is used at LinkedIn, Cisco, Uber, Slack, Stripe, DoorDash, Target, Walmart, Amazon, and Microsoft to deliver scalable real time analytics with low latency.[30] It can ingest data from offline data sources (such as Hadoop and flat files) as well as online sources (such as Kafka). Pinot is designed to scale horizontally.
+Mondrian OLAP server is an open-source OLAP server written in Java. It supports the MDX query language, the XML for Analysis and the olap4j interface specifications.
+Apache Druid is a popular open-source distributed data store for OLAP queries that is used at scale in production by various organizations.
+Apache Kylin is a distributed data store for OLAP queries originally developed by eBay.
+Cubes (OLAP server) is another light-weight open-source toolkit implementation of OLAP functionality in the Python programming language with built-in ROLAP.
+ClickHouse is a fairly new column orientated DBMS focusing on fast processing and response times.
+
+N-ARY storage model：
+The DBMS stores all attributes for a single tuple 
+contiguously in a page.
+
+Advantages
+→ Fast inserts, updates, and deletes.
+→ Good for queries that need the entire tuple.
+Disadvantages
+→ Not good for scanning large portions of the table and/or 
+a subset of the attributes.
+
+
+Advantages
+→ Reduces the amount wasted I/O because the DBMS only 
+reads the data that it needs.
+→ Better query processing and data compression (more on 
+this later).
+Disadvantages
+→ Slow for point queries, inserts, updates, and deletes 
+because of tuple splitting/stitching.
+
+
+It is important to choose the right storage model 
+for the target workload:
+→ OLTP = Row Store
+→ OLAP = Column Store
+
+
+文件如何存放，文件顺序处理， 内存数据如何同步
+DATABASE STORAGE
+Spatial Control:
+→ Where to write pages on disk.
+→ The goal is to keep pages that are used together often as 
+physically close together as possible on disk.
+Temporal Control:
+→ When to read pages into memory, and when to write 
+them to disk.
+→ The goal is minimize the number of stalls from having to 
+read data from disk.
+
+
+
+
+内存管理 缓存管理
+Buffer Pool Manager
+Replacement Policies
+Other Memory Pools
+
+page加载状态表
+The page table keeps track of pages 
+that are currently in memory.
+Also maintains additional meta-data 
+per page:
+→ Dirty Flag
+→ Pin/Reference Counter
+
+
+
+LOCKS VS. L ATCHES
+
+
+PAGE TABLE VS. PAGE DIRECTORY
+The page directory is the mapping from page ids 
+to page locations in the database files.
+→ All changes must be recorded on disk to allow the DBMS 
+to find on restart.
+The page table is the mapping from page ids to a 
+copy of the page in buffer pool frames.
+→ This is an in-memory data structure that does not need to 
+be stored on disk.
+
+
+BUFFER POOL OPTIMIZATIONS
+Multiple Buffer Pools
+Pre-Fetching
+Scan Sharing
+Buffer Pool Bypass
+
+
+Approach #1: Object Id
+→ Embed an object identifier in record ids 
+and then maintain a mapping from objects 
+to specific buffer pools.
+Approach #2: Hashing
+→ Hash the page id to select which
+buffer pool to access.
+
+预加载， 把一个计划的相关页预加载
+PRE-FETCHING
+The DBMS can also prefetch pages 
+based on a query plan.
+→ Sequential Scans
+→ Index Scans
+
