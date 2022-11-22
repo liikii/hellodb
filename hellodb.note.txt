@@ -1872,10 +1872,402 @@ Approach #2: Hashing
 → Hash the page id to select which
 buffer pool to access.
 
-预加载， 把一个计划的相关页预加载
+预加载， 把一个计划的相关页预加载， 预加载索引页
 PRE-FETCHING
 The DBMS can also prefetch pages 
 based on a query plan.
 → Sequential Scans
 → Index Scans
 
+
+相关的query分享page.
+Queries can reuse data retrieved from storage or 
+operator computations.
+→ Also called synchronized scans.
+→ This is different from result caching.
+Allow multiple queries to attach to a single cursor 
+that scans a table.
+→ Queries do not have to be the same.
+→ Can also share intermediate results.
+
+
+SCAN SHARING
+If a query wants to scan a table and another query 
+is already doing this, then the DBMS will attach 
+the second query's cursor to the existing cursor.
+Examples:
+→ Fully supported in IBM DB2, MSSQL, and Postgres.
+→ Oracle only supports cursor sharing for identical queries.
+
+
+跳过  os page cache. 
+Most DBMSs use direct I/O (O_DIRECT)to bypass 
+the OS's cache.
+→ Redundant copies of pages.
+→ Different eviction policies.
+
+page缓存策略
+LEAST-RECENTLY USED
+Maintain a single timestamp of when each page 
+was last accessed.
+When the DBMS needs to evict a page, select the 
+one with the oldest timestamp.
+→ Keep the pages in sorted order to reduce the search time 
+on eviction.
+
+
+缓存暗示
+BETTER POLICIES: PRIORITY HINTS
+The DBMS knows what the context of each page 
+during query execution.
+It can provide hints to the buffer pool on whether 
+a page is important or not.
+
+
+BACKGROUND WRITING
+The DBMS can periodically walk through the page 
+table and write dirty pages to disk.
+When a dirty page is safely written, the DBMS can 
+either evict the page or just unset the dirty flag.
+Need to be careful that we don’t write dirty pages 
+before their log records have been written…
+
+
+OTHER MEMORY POOLS
+The DBMS needs memory for things other than 
+just tuples and indexes.
+These other memory pools may not always backed
+by disk. Depends on implementation.
+→ Sorting + Join Buffers
+→ Query Caches
+→ Maintenance Buffers
+→ Log Buffers
+→ Dictionary Caches
+
+
+代码质量
+CODE QUALITY
+We will automatically check whether you are 
+writing good code.
+→ Google C++ Style Guide
+→ Doxygen Javadoc Style
+You need to run these targets before you submit 
+your implementation to Gradescope.
+
+
+
+数据库五大部分从底到顶
+disk manager
+buffer pool manager 
+access methods
+operator execution
+query planning
+
+
+
+HASH TABLE
+Design Decision #1: Hash Function
+→ How to map a large key space into a smaller domain.
+→ Trade-off between being fast vs. collision rate.
+Design Decision #2: Hashing Scheme
+→ How to handle key collisions after hashing.
+→ Trade-off between allocating a large hash table vs. 
+additional instructions to find/insert keys.
+
+
+
+For any input key, return an integer 
+representation of that key.
+We do not want to use a cryptographic hash 
+function for DBMS hash tables.
+We want something that is fast and has a low 
+collision rate.
+
+hash 算法进化
+HASH FUNCTIONS
+CRC-64 (1975)
+→ Used in networking for error detection.
+MurmurHash (2008)
+→ Designed to a fast, general purpose hash function.
+Google CityHash (2011)
+→ Designed to be faster for short keys (<64 bytes).
+Facebook XXHash (2012)
+→ From the creator of zstd compression.
+Google FarmHash (2014)
+→ Newer version of CityHash with better collision rates
+
+
+STATIC HASHING SCHEMES
+Approach #1: Linear Probe Hashing  向下找， 一直向下
+Approach #2: Robin Hood Hashing   
+罗宾汉哈希法（robin hood hashing）是线性探查法的变种，可以避免线性探查法中可能出现的在连续区域里频繁后移的操作。当我们进行插入时，如果发现单元格被其他键值对占用，那么就需要比较这俩个键距离其原本位置的距离。距离较远的键值对留下，距离较近的被迫后移。
+Approach #3: Cuckoo Hashing
+多hashing 方法
+
+动态hashing
+The previous hash tables require the DBMS to 
+know the number of elements it wants to store.
+→ Otherwise it must rebuild the table if it needs to 
+grow/shrink in size.
+Dynamic hash tables resize themselves on demand.
+→ Chained Hashing
+→ Extendible Hashing
+动态扩展
+→ Linear Hashing
+
+
+EXTENDIBLE HASHING
+
+
+Fast data structures that support O(1) look-ups that 
+are used all throughout the DBMS internals.
+→ Trade-off between speed and flexibility.
+Hash tables are usually not what you want to use 
+for a table index…
+
+
+CockroachDB Query Optimizer
+→ Monday Sept 28th @ 5pm ET
+Apache Arrow
+→ Monday Oct 5th @ 5pm ET
+DataBricks Query Optimizer
+→ Monday Oct 12th @ 5pm ET
+
+索引 
+A table index is a replica of a subset of a table's 
+attributes that are organized and/or sorted for 
+efficient access using a subset of those attributes.
+The DBMS ensures that the contents of the table 
+and the index are logically in sync.
+
+索引注意事项
+There is a trade-off on the number of indexes to 
+create per database.
+→ Storage Overhead
+→ Maintenance Overhead、
+
+
+页结点  
+
+Approach #1: Record Ids
+→ A pointer to the location of the tuple that 
+the index entry corresponds to.
+Approach #2: Tuple Data
+→ The actual contents of the tuple is stored 
+in the leaf node.
+→ Secondary indexes must store the record 
+id as their values.
+
+B+树插入方法
+Find correct leaf node L.
+Put data entry into L in sorted order.
+If L has enough space, done!
+Otherwise, split L keys into L and a new node L2
+→ Redistribute entries evenly, copy up middle key.
+→ Insert index entry pointing to L2 into parent of L.
+To split inner node, redistribute entries evenly, 
+but push up middle key.
+
+
+B+TREE DUPLICATE KEYS
+Approach #1: Append Record Id
+→ Add the tuple's unique record id as part of the key to 
+ensure that all keys are unique.
+→ The DBMS can still use partial keys to find tuples.
+Approach #2: Overflow Leaf Nodes
+→ Allow leaf nodes to spill into overflow nodes that contain 
+the duplicate keys.
+→ This is more complex to maintain and modif
+
+
+数据库主键实现
+CLUSTERED INDEXES
+The table is stored in the sort order specified by 
+the primary key.
+→ Can be either heap- or index-organized storage.
+Some DBMSs always use a clustered index.
+→ If a table does not contain a primary key, the DBMS will 
+automatically make a hidden row id primary key.
+Other DBMSs cannot use them at all.
+
+
+
+The venerable B+Tree is always a good choice for 
+your DBMS.
+
+
+MERGE THRESHOLD
+Some DBMSs do not always merge nodes when it 
+is half full.
+Delaying a merge operation may reduce the 
+amount of reorganization.
+It may also be better to just let underflows to exist 
+and then periodically rebuild entire tree.
+
+优化
+OPTIMIZATIONS
+Prefix Compression
+共同前缀分离出来
+Deduplication
+    DEDUPLICATION
+    Non-unique indexes can end up 
+    storing keys multiple copies of the 
+    same key in leaf nodes.
+    → This will make more sense when we talk
+    about MVCC.
+    The leaf node can store the key once 
+    and then a maintain a list of record ids 
+    with that key.
+    重复key
+
+Suffix Truncation
+    SUFFIX TRUNCATION
+The keys in the inner nodes are only 
+used to "direct traffic".
+→ We don't need the entire key.
+Store a minimum prefix that is needed 
+to correctly route probes into the 
+index.
+
+
+Bulk Insert
+    最快建索引的方法， 先排好序， 直接建
+    BULK INSERT
+    The fastest way to build a new 
+    B+Tree for an existing table is to first 
+    sort the keys and then build the index 
+    from the bottom up.
+Pointer Swizzling
+Nodes use page ids to reference other 
+nodes in the index. The DBMS must 
+get the memory location from the 
+page table during traversal.
+If a page is pinned in the buffer pool, 
+then we can store raw pointers 
+instead of page ids. This avoids 
+address lookups from the page table.
+
+分索引 只对子集数据进行索引 ， 减少索引压力
+PARTIAL INDEXES
+Create an index on a subset of the 
+entire table. This potentially reduces 
+its size and the amount of overhead
+to maintain it.
+One common use case is to partition 
+indexes by date ranges.
+→ Create a separate index per month, year.
+
+
+覆盖索引
+COVERING INDEXES
+If all the fields needed to process the 
+query are available in an index, then 
+the DBMS does not need to retrieve 
+the tuple.
+This reduces contention on the 
+DBMS's buffer pool resources.
+Also called index-only scans.
+
+索引追加列， 加快select
+INDEX INCLUDE COLUMNS
+Embed additional columns in indexes 
+to support index-only queries.
+These extra columns are only stored 
+in the leaf nodes and are not part of 
+the search key.
+
+
+字段函数加索引 
+FUNCTIONAL/EXPRESSION INDEXES
+An index does not need to store keys 
+in the same way that they appear in 
+their base table.
+You can use expressions when 
+declaring an index.
+
+
+The inner node keys in a B+Tree cannot tell you 
+whether a key exists in the index. You must always 
+traverse to the leaf node.
+This means that you could have (at least) one 
+buffer pool page miss per level in the tree just to 
+find out a key does not exist.
+
+
+字母树
+TRIE INDEX
+Use a digital representation of keys to 
+examine prefixes one-by-one instead 
+of comparing entire key.
+→ Also known as Digital Search Tree, Prefix 
+Tree.
+
+字母树优点
+TRIE INDEX PROPERTIES
+Shape only depends on key space and lengths.
+→ Does not depend on existing keys or insertion order.
+→ Does not require rebalancing operations.
+All operations have O(k) complexity where k is the 
+length of the key.
+→ The path to a leaf node represents the key of the leaf
+→ Keys are stored implicitly and can be reconstructed from 
+paths.
+
+
+
+
+trie key span
+
+
+
+
+反向索引 ， 用于文本搜索
+INVERTED INDEX
+An inverted index stores a mapping of words to 
+records that contain those words in the target 
+attribute.
+→ Sometimes called a full-text search index.
+→ Also called a concordance in old (like really old) times.
+The major DBMSs support these natively.
+There are also specialized DBMSs.
+
+xapian elasticsearch solr sphinx  lucene
+
+
+QUERY T YPES
+Phrase Searches
+→ Find records that contain a list of words in the given 
+order.
+Proximity Searches
+→ Find records where two words occur within n words of 
+each other.
+Wildcard Searches
+→ Find records that contain words that match some pattern 
+(e.g., regular expression).
+
+其它树
+CONCLUSION
+B+Trees are still the way to go for tree indexes.
+Inverted indexes are covered in CMU 11-442.
+We did not discuss geo-spatial tree indexes:
+→ Examples: R-Tree, Quad-Tree, KD-Tree
+→ This is covered in CMU 15-826.
+
+
+Search Engines slides edu
+全文检索书藉
+Textbook: The textbook is Introduction to Information Retrieval, Christopher D. Manning, Prabhakar Raghavan, and Hinrich Schutze, Cambridge University Press. 2008. You may use the printed copy or the online copy, but note that the reading instructions refer to the printed copy.
+
+索引异步控制 
+Index Concurrency Control
+
+
+多用户访问 解决冲突
+We assumed that all the data structures that we 
+have discussed so far are single-threaded.
+But we need to allow multiple threads to safely 
+access our data structures to take advantage of 
+additional CPU cores and hide disk I/O stalls
+
+
+voltdb, redis, h-store不解决这些问题
