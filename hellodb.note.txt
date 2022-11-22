@@ -2271,3 +2271,51 @@ additional CPU cores and hide disk I/O stalls
 
 
 voltdb, redis, h-store不解决这些问题
+
+Concurrency is the execution of the multiple instruction sequences at the same time. It happens in the operating system when there are several process threads running in parallel. The running process threads always communicate with each other through shared memory or message passing.
+
+解决并发对共享数据操作失误的问题
+A concurrency control protocol is the method 
+that the DBMS uses to ensure "correct" results for 
+concurrent operations on a shared object.
+A protocol's correctness criteria can vary:
+→ Logical Correctness: Can a thread see the data that it is 
+supposed to see?
+→ Physical Correctness: Is the internal representation of 
+the object sound?
+
+栓可能用系统信号解决
+Latches Overview
+Hash Table Latching
+B+Tree Latching
+Leaf Node Scans
+Delayed Parent Updates
+
+Latches are used to guarantee physical consistency of data, while locks are used to assure logical consistency of data.
+
+Latches are simple, low-level system lock (serialization mechanisms) that coordinate multi-user access (concurrency) to shared data structures, objects, and files.
+
+Latches protect shared memory resources from corruption when accessed by multiple processes. Specifically, latches protect data structures from the following situations:
+
+Concurrent modification by multiple sessions
+Being read by one session while being modified by another session
+Deallocation (aging out) of memory while being accessed
+Typically, a single latch protects multiple objects in the SGA.
+
+
+The implementation of latches is operating system-dependent, especially in respect to whether and how long a process waits for a latch.
+
+As an auxiliary to locks, lighter-weight latches are also provided for mutual exclusion. Latches are more akin to monitors or semaphores than locks; they are used to provide exclusive access to internal data structures.
+
+As an example in a database, the buffer pool page table has a latch associated with each frame, to guarantee that only one DBMS thread is replacing a given frame at any time. Latches are used in the implementation of locks and to briefly stabilize internal data structures potentially being concurrently modified.
+
+
+A lock allows only one thread to enter the part that's locked and the lock is not shared with any other processes.
+
+A mutex is the same as a lock but it can be system wide (shared by multiple processes).
+
+A semaphore does the same as a mutex but allows x number of threads to enter, this can be used for example to limit the number of cpu, io or ram intensive tasks running at the same time.
+
+For a more detailed post about the differences between mutex and semaphore read here.
+
+You also have read/write locks that allows either unlimited number of readers or 1 writer at any given time.
