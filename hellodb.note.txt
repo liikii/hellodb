@@ -2602,3 +2602,117 @@ We normalize tables in a relational database to
 avoid unnecessary repetition of information.
 We use the join operate to reconstruct the original 
 tuples without any information loss.
+
+Join小表最外层
+JOIN ALGORITHMS
+We will focus on performing binary joins (two 
+tables) using inner equijoin algorithms.
+→ These algorithms can be tweaked to support other joins..
+→ Multi-way joins exist only in research literature.
+In general, we want the smaller table to always be 
+the left table ("outer table") in the query plan
+
+join 两个关系做积
+For tuple r ∈ R and tuple s ∈ S that 
+match on join attributes, concatenate 
+rand s together into a new tuple.
+Output contents can vary:
+→ Depends on processing model
+→ Depends on storage model
+→ Depends on data requirements in query
+
+
+
+OPERATOR OUTPUT: DATA
+早物化， copy值  
+Early Materialization:
+→ Copy the values for the attributes in outer 
+and inner tuples into a new output tuple.
+
+晚物化， copy id
+Late Materialization:
+→ Only copy the joins keys along with the 
+record ids of the matching tuples.
+
+
+
+Ideal for column stores because the 
+DBMS does not copy data that is not 
+need for the query.
+
+
+JOIN io消耗计算
+COST ANALYSIS CRITERIA
+Assume:
+→ M pages in table R, m tuples in R
+→ N pages in table S, n tuples in S
+Cost Metric: # of IOs to compute join
+We will ignore output costs since that depends on 
+the data and we cannot compute that yet.
+
+
+Join有很多算法， 没有一个算法可能 应对所有场景。 
+JOIN VS CROSS-PRODUCT
+R⨝S is the most common operation and thus 
+must be carefully optimized.
+R×S followed by a selection is inefficient because 
+the cross-product is large.
+There are many algorithms for reducing join cost, 
+but no algorithm works well in all scenarios.
+
+
+join算法
+JOIN ALGORITHMS
+1. Nested Loop Join
+原始算法， 一条条合并检查 ， io消息是外表块数+外表条数*内表块数
+Io数据*0.1 ms/io
+→ Simple / Stupid
+2. → Block
+块方法，先取关系块， 然后做Join
+    foreach block BR ∈ R:
+        foreach block BS ∈ S:
+            foreach tuple r ∈ BR: 
+                foreach tuple s ∈ Bs:
+                    emit, if r and s match
+
+io消耗数是 外表块数 + 外表块数*内表块数
+Example database:
+→ Table R: M = 1000, m = 100,000
+→ Table S: N = 500, n = 40,000 
+Cost Analysis:
+→ M + (M ∙ N) = 1000 + (1000 ∙ 500) = 501,000 IOs
+→ At 0.1 ms/IO, Total time ≈ 50 seconds
+如果buffer能覆盖了外表，消耗最小
+This algorithm uses B-2 buffers for scanning R.
+Cost: M + ( M / (B-2) ∙ N)
+What if the outer relation completely fits in 
+memory (B > M+2)?
+→ Cost: M + N = 1000 + 500 = 1500 IOs
+→ At 0.1ms/IO, Total time ≈ 0.15 seconds
+
+
+
+
+→ Index
+解决一一配置的效率慢的问题
+用索引或者建索引解决匹配问题
+在内表建索引 
+NESTED LOOP JOIN
+Why does the basic nested loop join suck?
+→ For each tuple in the outer table, we must do a sequential 
+scan to check for a match in the inner table.
+We can avoid sequential scans by using an index to 
+find inner table matches.
+→ Use an existing index for the join. 
+→ Build one on the fly (hash table, B+Tree).
+
+尽量把外表加到内存， 内表匹配尽量上索引 
+NESTED LOOP JOIN
+Pick the smaller table as the outer table.
+Buffer as much of the outer table in memory as 
+possible.
+Loop over the inner table or use an index.
+
+Sort-Merge Join
+Hash Join
+
