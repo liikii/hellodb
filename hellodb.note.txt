@@ -2319,3 +2319,286 @@ A semaphore does the same as a mutex but allows x number of threads to enter, th
 For a more detailed post about the differences between mutex and semaphore read here.
 
 You also have read/write locks that allows either unlimited number of readers or 1 writer at any given time.
+
+
+Locks
+→ Protects the database's logical contents from other txns.
+→ Held for txn duration.
+→ Need to be able to rollback changes.
+Latches
+→ Protects the critical sections of the DBMS's internal data 
+structure from other threads.
+→ Held for operation duration.
+→ Do not need to be able to rollback changes.
+
+
+Hopefully we now have a clear understanding of the difference between the binary semaphore and the counting semaphore. Before moving onto the mutex we need to understand the inherent dangers associated with using the semaphore. These include:
+
+信号常见问题
+Accidental release
+Recursive deadlock
+Task-Death deadlock
+Priority inversion
+Semaphore as a signal
+All these problems occur at run-time and can be very difficult to reproduce; making technical support very difficult.
+
+
+latch implementation 栓实现
+Blocking OS Mutex
+Test-and-Set Spinlock
+Reader-Writer Locks
+
+搜索图书推荐
+Course Texts
+There is no required textbook for this course. Readings will be suggested in the syllabus from the following two books.
+Search Engines: Information Retrieval in Practice. Croft, Metzler and Strohman (Addison-Wesley, 2008).
+Introduction to Information Retrieval. Manning, Raghavan, and Schütze (Cambridge). Available online.
+
+what's mutex
+When I am having a big heated discussion at work, I use a rubber chicken which I keep in my desk for just such occasions. The person holding the chicken is the only person who is allowed to talk. If you don't hold the chicken you cannot speak. You can only indicate that you want the chicken and wait until you get it before you speak. Once you have finished speaking, you can hand the chicken back to the moderator who will hand it to the next person to speak. This ensures that people do not speak over each other, and also have their own space to talk.
+
+Replace Chicken with Mutex and person with thread and you basically have the concept of a mutex.
+
+Of course, there is no such thing as a rubber mutex. Only rubber chicken. My cats once had a rubber mouse, but they ate it.
+
+Of course, before you use the rubber chicken, you need to ask yourself whether you actually need 5 people in one room and would it not just be easier with one person in the room on their own doing all the work. Actually, this is just extending the analogy, but you get the idea.
+
+
+
+Approach #2: Test-and-Set Spin Latch (TAS)
+→ Very efficient (single instruction to latch/unlatch)
+→ Non-scalable, not cache friendly, not OS friendly.
+→ Example: std::atomic<T>
+
+并发出错控制 
+B+TREE CONCURRENCY CONTROL
+We want to allow multiple threads to read and 
+update a B+Tree at the same time.
+We need to protect from two types of problems:
+→ Threads trying to modify the contents of a node at the 
+same time.
+→ One thread traversing the tree while another thread 
+splits/merges nodes.
+
+
+L ATCH CRABBING/COUPLING
+Protocol to allow multiple threads to 
+access/modify B+Tree at the same time.
+Basic Idea:
+→ Get latch for parent.
+→ Get latch for child
+→ Release latch for parent if “safe”.
+A safe node is one that will not split or merge 
+when updated.
+→ Not full (on insertion)
+→ More than half-full (on deletion)
+
+
+Find: Start at root and go down; repeatedly,
+→ Acquire R latch on child
+→ Then unlatch parent
+Insert/Delete: Start at root and go down, 
+obtaining W latches as needed. Once child is 
+latched, check if it is safe:
+→ If child is safe, release all latches on ancestors.
+
+锁机制， 先父锁， 再取子锁， 判断操作是否影响父锁， 不影响释放他， 继续向下。 
+
+上边的方法有个问题是影响效率
+Taking a write latch on the root every time 
+becomes a bottleneck with higher concurrency
+
+
+更新操作的时候， 先用读锁， 如果发现不行， 再用写锁。 
+Most modifications to a B+Tree will 
+not require a split or merge.
+Instead of assuming that there will be 
+a split/merge, optimistically traverse 
+the tree using read latches.
+If you guess wrong, repeat traversal 
+with the pessimistic algorithm.
+
+
+Search: Same as before.
+Insert/Delete: 
+→ Set latches as if for search, get to leaf, and set W latch on 
+leaf.
+→ If leaf is not safe, release all latches, and restart thread 
+using previous insert/delete protocol with write latches.
+This approach optimistically assumes that only leaf 
+node will be modified; if not, R latches set on the 
+first pass to leaf are wasteful.
+
+为了效率  延迟结构平衡
+DELAYED PARENT UPDATES
+Every time a leaf node overflows, we must update 
+at least three nodes.
+→ The leaf node being split.
+→ The new leaf node being created.
+→ The parent node.
+B
+link-Tree Optimization: When a leaf node 
+overflows, delay updating its parent node.
+
+锁加版本
+VERSIONED LATCH COUPLING
+Optimistic crabbing scheme where writers are not 
+blocked on readers.
+Every node now has a version number (counter).
+→ Writers increment counter when they acquire latch.
+→ Readers proceed if a node’s latch is available but then do 
+not acquire it.
+→ It then checks whether the latch’s counter has changed 
+from when it checked the latch.
+
+
+
+You will build a thread-safe B+tree.
+→ Page Layout
+→ Data Structure
+→ STL Iterator
+→ Latch Crabbing
+
+
+计划执行， 数据流从叶到根。 
+QUERY PLAN
+The operators are arranged in a tree.
+Data flows from the leaves of the tree 
+up towards the root.
+The output of the root node is the 
+result of the query
+
+为什么需要排序   order by , distinct, group by 的时候会用到，有利于索引 。 
+WHY DO WE NEED TO SORT ?
+Queries may request that tuples are sorted in a 
+specific way (ORDER BY).
+But even if a query does not specify an order, we 
+may still want to sort to do other things:
+→ Trivial to support duplicate elimination (DISTINCT).
+→ Bulk loading sorted tuples into a B+Tree index is faster.
+→ Aggregations (GROUP BY)
+
+
+‘
+因为受读写磁盘效率的影响， 快速排序 不太适用。 
+SORTING ALGORITHMS
+If data fits in memory, then we can use a standard 
+sorting algorithm like quick-sort. 
+If data does not fit in memory, then we need to use 
+a technique that is aware of the cost of reading and 
+writing from the disk in pages…
+
+
+合并排序
+EXTERNAL MERGE SORT
+Divide-and-conquer algorithm that splits the data 
+set into separate runs, sorts them individually, and 
+then combine into larger sorted runs.
+Phase #1 – Sorting
+→ Sort blocks of data that fit in main-memory and then 
+write back the sorted blocks to a file on disk.
+Phase #2 – Merging
+→ Combine sorted sub-files into a single larger file
+
+sorted run 排序流程
+A run is a list of key/value pairs.
+Key: The attribute(s) to compare
+to compute the sort order.
+Value: Two choices
+→ Record Id (late materialization).
+→ Tuple (early materialization).
+
+两路合并
+2-WAY EXTERNAL MERGE SORT
+We will start with a simple example of a 2-way 
+external merge sort.
+→ "2" represents the number of runs that we are going to 
+merge into a new run for each pass.
+Data set is broken up into N pages.
+The DBMS has a finite number of B buffer pages 
+to hold input and output data.
+两路外部全并排序 
+2-WAY EXTERNAL MERGE SORT
+Pass #0
+→ Read every B pages of the table into memory
+→ Sort pages into runs and write them back to disk.
+Pass #1,2,3,…
+→ Recursively merges pairs of runs into runs twice as long.
+→ Uses three buffer pages (2 for input pages, 1 for output).
+
+受磁盘影响， 可能多个buffer也没用
+2-WAY EXTERNAL MERGE SORT
+This algorithm only requires three buffer pages to 
+perform the sorting (B=3).
+→ Two Input Pages, One Output Page
+But even if we have more buffer space available 
+(B>3), it does not effectively utilize them if the 
+worker must block on disk I/O…
+
+摊派
+DOUBLE BUFFERING OPTIMIZATION
+Prefetch the next run in the background and store 
+it in a second buffer while the system is processing 
+the current run.
+→ Reduces the wait time for I/O requests at each step by 
+continuously utilizing the disk.
+
+在B树上做排序
+簇与非簇
+USING B+TREES FOR SORTING
+If the table that must be sorted already has a 
+B+Tree index on the sort attribute(s), then we can 
+use that to accelerate sorting.
+Retrieve tuples in desired sort order by simply 
+traversing the leaf pages of the tree.
+Cases to consider:
+→ Clustered B+Tree
+→ Unclustered B+Tree
+
+
+如何磁盘顺序是数据排序顺序
+This is always better than external 
+sorting because there is no 
+computational cost, and all disk access 
+is sequential.
+
+
+如果磁盘顺序和索引顺序不一致， 不利于IO。
+
+
+group by , distinct不需要排序的时候， 用hash比较好。 
+What if we do not need the data to be ordered?
+→ Forming groups in GROUP BY (no ordering)
+→ Removing duplicates in DISTINCT (no ordering)
+Hashing is a better alternative in this scenario.
+→ Only need to remove duplicates, no need for ordering.
+→ Can be computationally cheaper than sorting.
+
+
+hash索引 如何做group, 运算，分到不同frame， 算结果 
+PHASE #1 PARTITION
+Use a hash function h1
+to split tuples into 
+partitions on disk.
+→ A partition is one or more pages that contain the set of 
+keys with the same hash value. 
+→ Partitions are "spilled" to disk via output buffers.
+Assume that we have B buffers.
+We will use B-1 buffers for the partitions and 1
+buffer for the input data
+如 distinct不要求排序 的时候， 用hash比较好。 
+PHASE #2 REHASH
+For each partition on disk:
+→ Read it into memory and build an in-memory hash table 
+based on a second hash function h2
+.
+→ Then go through each bucket of this hash table to bring 
+together matching tuples.
+This assumes that each partition fits in memory.
+
+为什么需要Join, 正规化是把重复的数据分开。 出结果的时候再通过Join把数据关联起来。 
+WHY DO WE NEED TO JOIN?
+We normalize tables in a relational database to 
+avoid unnecessary repetition of information.
+We use the join operate to reconstruct the original 
+tuples without any information loss.
