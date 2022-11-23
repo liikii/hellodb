@@ -2865,3 +2865,144 @@ Caveats:
 Good DBMSs use either or both.
 
 
+查询计划处理模型
+A DBMS's processing model defines how the 
+system executes a query plan.
+→ Different trade-offs for different workloads.
+Approach #1: Iterator Model
+Approach #2: Materialization Model
+Approach #3: Vectorized / Batch Model
+
+
+
+
+ITERATOR MODEL
+最简单模型，用iterator 封闭读block.
+Each query plan operator implements a Next
+function.
+→ On each invocation, the operator returns either a single 
+tuple or a null marker if there are no more tuples.
+→ The operator implements a loop that calls next on its 
+children to retrieve their tuples and then process them.
+Also called Volcano or Pipeline Model.
+
+
+
+Join的iterator 模型
+关系iterator传给 where iterator再传递iterator到join. 
+join 对左表建hashtable， 然后右表和Hashtable匹配，然后再传给Projection iterator. 
+
+迭代器模型是用的最多的模型。 
+ITERATOR MODEL
+This is used in almost every DBMS. Allows for 
+tuple pipelining.
+Some operators must block until their children 
+emit all their tuples.
+→ Joins, Subqueries, Order By
+Output control works easily with this approach.
+
+
+
+物化模型， 每次关系直接吐出所有结果 
+MATERIALIZATION MODEL
+Each operator processes its input all at once and 
+then emits its output all at once.
+→ The operator "materializes" its output as a single result.
+→ The DBMS can push down hints into to avoid scanning 
+too many tuples.
+→ Can send either a materialized row or a single column.
+The output can be either whole tuples (NSM) or 
+subsets of columns (DSM)
+
+优缺点，表不太的时候很好用。 
+MATERIALIZATION MODEL
+Better for OLTP workloads because queries only 
+access a small number of tuples at a time.
+→ Lower execution / coordination overhead.
+→ Fewer function calls.
+Not good for OLAP queries with large 
+intermediate results.
+
+向量模型， 一次吐出一批可处理的块， 可以再好地并发， 减少操作数
+VECTORIZATION MODEL
+Like the Iterator Model where each operator 
+implements a Next function in this model.
+Each operator emits a batch of tuples instead of a 
+single tuple.
+→ The operator's internal loop processes multiple tuples at a 
+time.
+→ The size of the batch can vary based on hardware or 
+query properties.
+
+presto, vectorwise, snowflake, hyrise, duckdb, noisepage, sqlserver, db2, oracle, amazonredshift
+
+
+
+处理方式， 是从根向下要数据 ， 还是下边向上送数据 
+PLAN PROCESSING DIRECTION
+Approach #1: Top-to-Bottom
+→ Start with the root and "pull" data up from its children.
+→ Tuples are always passed with function calls.
+Approach #2: Bottom-to-Top
+→ Start with leaf nodes and push data to their parents.
+→ Allows for tighter control of caches/registers in pipelines.
+
+数据访问方法
+ACCESS METHODS
+An access method is a way that the 
+DBMS can access the data stored in a 
+table.
+→ Not defined in relational algebra.
+Three basic approaches:
+→ Sequential Scan
+→ Index Scan
+→ Multi-Index / "Bitmap" Scan
+
+序列读
+SEQUENTIAL SCAN
+For each page in the table:
+→ Retrieve it from the buffer pool.
+→ Iterate over each tuple and check whether 
+to include it.
+The DBMS maintains an internal 
+cursor that tracks the last page / slot 
+it examined.
+
+序列读的方法效率太慢，需要优化
+This is almost always the worst thing that the 
+DBMS can do to execute a query.
+Sequential Scan Optimizations:
+→ Prefetching
+→ Buffer Pool Bypass
+→ Parallelization
+→ Heap Clustering
+→ Zone Maps
+→ Late Materialization
+
+
+对表里的数据 做一个简单的索引 。 优化查询 
+ZONE MAPS
+Pre-computed aggregates for the attribute values 
+in a page. DBMS checks the zone map first to 
+decide whether it wants to access the page
+
+索引读取
+INDEX SCAN
+The DBMS picks an index to find the tuples that 
+the query needs.
+判断用那个索引
+Which index to use depends on:
+属性在不在上边
+→ What attributes the index contains
+查询要那些属性
+→ What attributes the query references
+属性值的范围（分块索引 ）
+→ The attribute's value domains
+组合属性
+→ Predicate composition
+值是否唯一
+→ Whether the index has unique or non-unique keys
+
+
+
+
