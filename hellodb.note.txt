@@ -3005,4 +3005,241 @@ Which index to use depends on:
 
 
 
+多索引查询 
+MULTI-INDEX SCAN
+If there are multiple indexes that the DBMS can 
+use for a query:
+→ Compute sets of record ids using each matching index.
+→ Combine these sets based on the query's predicates 
+(union vs. intersect).
+→ Retrieve the records and apply any remaining predicates.
+Postgres calls this Bitmap Scan.
+
+一个条件用一个， 一个条件用一个， 然后结果做交集
+With an index on age and an index 
+on dept, 
+→ We can retrieve the record ids satisfying 
+age<30 using the first, 
+→ Then retrieve the record ids satisfying 
+dept='CS' using the second, 
+→ Take their intersection
+→ Retrieve records and check 
+country='US'.
+
+可以用概率hash做交集
+MULTI-INDEX SCAN
+Set intersection can be done with 
+bitmaps, hash tables, or Bloom filters
+
+
+修改查询的处理
+MODIFICATION QUERIES
+Operators that modify the database (INSERT, 
+UPDATE, DELETE) are responsible for checking 
+constraints and updating indexes.
+UPDATE/DELETE:
+→ Child operators pass Record Ids for target tuples.
+→ Must keep track of previously seen tuples.
+INSERT:
+→ Choice #1: Materialize tuples inside of the operator.
+→ Choice #2: Operator inserts any tuple passed in from 
+child operators
+
+更新操作， 
+先从相应索引里删除
+更新数据 
+插入相应的索引 
+for t in child.Next():
+    removeFromIndex(idx_salary, t.salary, t)
+    updateTuple(t.salary = t.salary + 1000)
+    insertIntoIndex(idx_salary, t.salary, t)
+
+
+更新操作会影响别的读操作
+HALLOWEEN PROBLEM
+Anomaly where an update operation changes the 
+physical location of a tuple, which causes a scan 
+operator to visit the tuple multiple times.
+→ Can occur on clustered tables or index scans.
+First discovered by IBM researchers while 
+working on System R on Halloween day in 1976.
+
+
+where语句 语法树
+The DBMS represents a WHERE clause 
+as an expression tree.
+The nodes in the tree represent 
+different expression types:
+→ Comparisons (=
+, <, >, !=)
+→ Conjunction (AND), Disjunction (OR)
+→ Arithmetic Operators (+, -, *, /, %)
+→ Constant Values
+→ Tuple Attribute References
+
+
+The DBMS represents a WHERE clause 
+as an expression tree.
+The nodes in the tree represent 
+different expression types:
+→ Comparisons (=
+, <, >, !=)
+→ Conjunction (AND), Disjunction (OR)
+→ Arithmetic Operators (+, -, *, /, %)
+→ Constant Values
+→ Tuple Attribute References
+
+
+并发查询执行
+Parallel Query Execution
+怎么并发执行， 提高速度
+QUERY EXECUTION
+We discussed last class how to 
+compose operators together to 
+execute a query plan.
+We assumed that the queries execute 
+with a single worker (e.g., thread).
+We now need to talk about how to 
+execute with multiple workers…
+
+
+WHY CARE ABOUT PARALLEL EXECUTION?
+Increased performance.
+→ Throughput
+→ Latency
+Increased responsiveness and availability.
+Potentially lower total cost of ownership 
+
+
+并发与分布式
+PARALLEL VS. DISTRIBUTED
+Parallel DBMSs:
+→ Resources are physically close to each other.
+→ Resources communicate with high-speed interconnect.
+→ Communication is assumed to cheap and reliable.
+Distributed DBMSs:
+→ Resources can be far from each other.
+→ Resources communicate using slow(er) interconnect.
+→ Communication cost and problems cannot be ignored.
+
+
+并发处理方法
+TODAY'S AGENDA
+Process Models
+Execution Parallelism
+I/O Parallelism
+
+进程模型
+PROCESS MODELS
+一个任务一个进程
+Approach #1: Process per DBMS Worker
+进程池
+Approach #2: Process Pool
+一个任务一个线程
+Approach #3: Thread per DBMS Worker
+
+
+进程模式
+Each worker is a separate OS process.
+→ Relies on OS scheduler.
+→ Use shared-memory for global data structures.
+→ A process crash doesn’t take down entire system.
+→ Examples: IBM DB2, Postgres, Oracle
+
+
+Single process with multiple worker threads.
+→ DBMS manages its own scheduling.
+→ May or may not use a dispatcher thread.
+→ Thread crash (may) kill the entire system.
+→ Examples: IBM DB2, MSSQL, MySQL, Oracle 
+
+线程已经很少用了
+PROCESS MODELS
+Using a multi-threaded architecture has several 
+advantages:
+→ Less overhead per context switch.
+→ Do not have to manage shared memory.
+The thread per worker model does not mean that 
+the DBMS supports intra-query parallelism.
+Andy is not aware of any new DBMS from last 10 
+years that doesn’t use threads unless they are Redis 
+or Postgres forks.
+
+调度
+SCHEDULING
+For each query plan, the DBMS decides where, 
+when, and how to execute it.
+多少任务， 多少CPU， 在那个CPU上执行， 输出 放那
+→ How many tasks should it use?
+→ How many CPU cores should it use?
+→ What CPU core should the tasks execute on?
+→ Where should a task store its output?
+The DBMS always knows more than the OS
+
+
+SQL SERVER SQLOS
+SQLOS is a user-level OS layer that runs inside of 
+the DBMS and manages provisioned hardware 
+resources.
+→ Determines which tasks are scheduled onto which 
+threads.
+→ Also manages I/O scheduling and higher-level concepts 
+like logical database locks.
+Non-preemptive thread scheduling through 
+instrumented DBMS code.
+
+query 间并发， query 内并发
+Inter-Query: Different queries are executed 
+concurrently.
+→ Increases throughput & reduces latency.
+Intra-Query: Execute the operations of a single 
+query in parallel.
+→ Decreases latency for long-running queries.
+
+并发要注意的问题是对同一资源的竞争
+INTER-QUERY PARALLELISM
+Improve overall performance by allowing multiple 
+queries to execute simultaneously.
+If queries are read-only, then this requires little 
+coordination between queries.
+If multiple queries are updating the database at the same time, then this is hard to do correctly…
+
+
+INTRA-QUERY PARALLELISM
+Improve the performance of a single query by 
+executing its operators in parallel.
+Think of organization of operators in terms of a 
+producer/consumer paradigm.
+There are parallel algorithms for every relational 
+operator.
+→ Can either have multiple threads access centralized data 
+structures or use partitioning to divide work up.
+
+图hash对不同的块单独处理
+PARALLEL GRACE HASH JOIN
+Use a separate worker to perform the join for each  level of buckets for R and S after partitioning.
+
+
+Use a separate worker to perform the join for each 
+level of buckets for R and S after partitioning.
+
+三种并发处理方法
+INTRA-QUERY PARALLELISM
+Approach #1: Intra-Operator (Horizontal)
+Approach #2: Inter-Operator (Vertical)
+Approach #3: Bushy
+
+查询内优化， 同样功能数据做分化
+INTRA-OPERATOR PARALLELISM
+Approach #1: Intra-Operator (Horizontal)
+→ Decompose operators into independent fragments that 
+perform the same function on different subsets of data.
+The DBMS inserts an exchange operator into the 
+query plan to coalesce/split results from multiple 
+children/parent operators.
+比如一次拉取多个page， 多处理单元对数据做where过滤
+
+
+
+
 
