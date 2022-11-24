@@ -3242,4 +3242,35 @@ children/parent operators.
 
 
 
+EXCHANGE OPERATOR
+兑换操作，把不同结果合并， 把单一结果分散，多分散结果洗牌
+Exchange Type #1 – Gather
+→ Combine the results from multiple 
+workers into a single output stream.
+Exchange Type #2 – Distribute
+→ Split a single input stream into multiple 
+output streams.
+Exchange Type #3 – Repartition
+→ Shuffle multiple input streams across 
+multiple output streams.
+
+
+比如这个操作， 先把A分多个块， 各块进行where, project操作， 最后合并后做join probe hashtable, 
+B表也是同样方法， 最后做Join匹配检测
+SELECT A.id, B.value
+FROM A JOIN B
+ON A.id = B.id
+WHERE A.value < 99
+AND B.value > 100
+
+多操作间并发
+INTER-OPERATOR PARALLELISM
+Approach #2: Inter-Operator (Vertical)
+→ Operations are overlapped in order to pipeline data from 
+one stage to the next without materialization.
+→ Workers execute multiple operators from different 
+segments of a query plan at the same time.
+→ Still need exchange operators to combine intermediate results from segments
+
+
 
