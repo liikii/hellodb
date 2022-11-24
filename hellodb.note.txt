@@ -3311,3 +3311,202 @@ devices.
 → One Database per Disk
 → One Relation per Disk
 → Split Relation across Multiple Disks
+
+使用raid
+MULTI-DISK PARALLELISM
+Configure OS/hardware to store the 
+DBMS's files across multiple storage 
+devices.
+→ Storage Appliances
+→ RAID Configuration
+This is transparent to the DBMS.
+
+
+DATABASE PARTITIONING
+Some DBMSs allow you specify the disk location 
+of each individual database.
+→ The buffer pool manager maps a page to a disk location.
+This is also easy to do at the filesystem level if the 
+DBMS stores each database in a separate directory.
+→ The DBMS recovery log file might still be shared if 
+transactions can update multiple databases.
+
+分表到不同磁盘
+PARTITIONING
+Split single logical table into disjoint physical 
+segments that are stored/managed separately.
+Ideally partitioning is transparent to the 
+application.
+→ The application accesses logical tables and does not care 
+how things are stored.
+
+水平分， 分不同列到不同磁盘
+VERTICAL PARTITIONING
+Store a table’s attributes in a separate 
+location (e.g., file, disk volume).
+Must store tuple information to 
+reconstruct the original record.
+
+把tuple分到不同区
+HORIZONTAL PARTITIONING
+Divide the tuples of a table up into 
+disjoint segments based on some 
+partitioning key.
+hash 方法
+→ Hash Partitioning 
+→ Range Partitioning
+这个不太懂
+→ Predicate Partitioning
+
+
+并发面临的问题
+CONCLUSION
+Parallel execution is important.
+(Almost) every DBMS support this.
+This is hard to get right.
+资源争抢
+→ Coordination Overhead
+→ Scheduling
+→ Concurrency Issues
+→ Resource Contention
+
+
+
+
+STORAGE 存储
+缓存策略  文件组织   页结构 
+Buffer Management Policies
+→ LRU / MRU / CLOCK
+On-Disk File Organization
+→ Heaps
+→ Linked Lists
+Page Layout
+→ Slotted Pages
+→ Log-Structured
+
+
+HASHING  算法
+Static Hashing
+→ Linear Probing
+→ Robin Hood
+→ Cuckoo Hashing
+Dynamic Hashing
+→ Extendible Hashing
+→ Linear Hashing
+
+
+查询优化问题
+QUERY OPTIMIZATION IS NP-HARD
+This is the hardest part of building a DBMS.
+If you are good at this, you will get paid $$$.
+People are starting to look at employing ML to 
+improve the accuracy and efficacy of optimizers.
+→ IBM DB2 tried this with LEO in the early 2000s
+
+
+优化方法
+Relational Algebra Equivalences 关系相等
+Logical Query Optimization
+Nested Queries
+Expression Rewriting
+
+谓词前置
+PREDICATE PUSHDOWN
+比如这个，在Join 前对e表做过滤处理
+SELECT s.name, e.cid
+FROM student AS s, enrolled AS e
+WHERE s.sid = e.sid
+AND e.grade = 'A'
+
+关系对等处理
+Selections:
+→ Perform filters as early as possible.
+→ Break a complex predicate, and push down
+σp1∧p2∧…pn
+(R) = σp1(σp2(…σpn
+(R)))
+Simplify a complex predicate 
+→ (X=Y AND Y=3) → X=3 AND Y=3
+
+
+join 交换率， 把小表前置
+
+取只需要的字段 
+Projections:
+→ Perform them early to create smaller tuples and reduce 
+intermediate results (if duplicates are eliminated)
+→ Project out all attributes except the ones requested or 
+required (e.g., joining keys)
+This is not important for a column store…
+
+比如这个语句， 在Join之间进行project, predicate
+SELECT s.name, e.cid
+FROM student AS s, enrolled AS e
+WHERE s.sid = e.sid
+AND e.grade = 'A'
+
+重点不太懂
+LOGICAL QUERY OPTIMIZATION
+Transform a logical plan into an equivalent logical 
+plan using pattern matching rules.
+The goal is to increase the likelihood of 
+enumerating the optimal plan in the search.
+Cannot compare plans because there is no cost 
+model but can "direct" a transformation to a 
+preferred side.
+
+逻辑优化方法
+LOGICAL QUERY OPTIMIZATION
+谓词分开
+Split Conjunctive Predicates
+谓词下移
+Predicate Pushdown
+替换cartesian用Join
+Replace Cartesian Products with Joins
+Projection前置
+Projection Pushdown
+
+子查询的处理方法
+NESTED SUB-QUERIES
+The DBMS treats nested sub-queries in the where 
+clause as functions that take parameters and return 
+a single value or set of values.
+Two Approaches:
+一重写平坦化
+→ Rewrite to de-correlate and/or flatten them
+二临时表
+→ Decompose nested query and store result to temporary 
+table
+
+
+SELECT name FROM sailors AS S
+WHERE EXISTS (
+SELECT * FROM reserves AS R
+WHERE S.sid = R.sid
+AND R.day = '2018-10-15'
+)
+上边平坦化成下边的
+SELECT name
+FROM sailors AS S, reserves AS R
+WHERE S.sid = R.sid
+AND R.day = '2018-10-15
+
+
+DECOMPOSING QUERIES
+For harder queries, the optimizer breaks up 
+queries into blocks and then concentrates on one 
+block at a time.
+Sub-queries are written to a temporary table that 
+are discarded after the query finishes.
+
+
+表达式重写
+EXPRESSION REWRITING
+An optimizer transforms a query's expressions 
+(e.g., WHERE clause predicates) into the 
+optimal/minimal set of expressions.
+Implemented using if/then/else clauses or a 
+pattern-matching rule engine.
+→ Search for expressions that match a pattern.
+→ When a match is found, rewrite the expression.
+→ Halt if there are no more rules that match.
