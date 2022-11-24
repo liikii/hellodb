@@ -3501,6 +3501,9 @@ are discarded after the query finishes.
 
 
 表达式重写
+比如无效表边式重写  如 1=1，  1=0等
+比如  a join a  = a
+
 EXPRESSION REWRITING
 An optimizer transforms a query's expressions 
 (e.g., WHERE clause predicates) into the 
@@ -3510,3 +3513,20 @@ pattern-matching rule engine.
 → Search for expressions that match a pattern.
 → When a match is found, rewrite the expression.
 → Halt if there are no more rules that match.
+
+
+比如
+SELECT * FROM A AS A1
+WHERE EXISTS(SELECT val FROM A AS A2
+WHERE A1.id = A2.id);
+上边语句  重写成下边的
+SELECT * FROM A;
+
+
+Merging Predicates
+比如这个
+SELECT * FROM A
+WHERE val BETWEEN 1 AND 100
+OR val BETWEEN 50 AND 150;
+
+
