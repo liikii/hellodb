@@ -3271,6 +3271,43 @@ one stage to the next without materialization.
 → Workers execute multiple operators from different 
 segments of a query plan at the same time.
 → Still need exchange operators to combine intermediate results from segments
+比如下边语句Join用一个进程处理， 传给另一个Project的进程做输出 
+SELECT A.id, B.value
+FROM A JOIN B
+ON A.id = B.id
+WHERE A.value < 99
+AND B.value > 100
 
 
 
+
+BUSHY PARALLELISM
+Approach #3: Bushy Parallelism
+→ Extension of inter-operator parallelism 
+where workers execute multiple operators 
+from different segments of a query plan at 
+the same time.
+→ Still need exchange operators to combine 
+intermediate results from segments.
+比如这个语句， 一个进程处理 a join b 一个进程处理c join d. 然后多个进程处理， ab 和cd之间的Join
+SELECT * FROM A JOIN B JOIN C JOIN D
+
+如果磁盘是bootleneck并发都是白扯。 
+OBSERVATION
+Using additional processes/threads to execute 
+queries in parallel won't help if the disk is always the main bottleneck.
+→ Can make things worse if each worker is reading 
+different segments of disk.
+
+提高IO效率
+I/O PARALLELISM
+Split the DBMS installation across multiple storage 
+devices.
+一个数据库多个磁盘
+一个数据库一个磁盘
+一个关系一个磁盘
+分隔关系到多个磁盘
+→ Multiple Disks per Database
+→ One Database per Disk
+→ One Relation per Disk
+→ Split Relation across Multiple Disks
