@@ -3529,4 +3529,212 @@ SELECT * FROM A
 WHERE val BETWEEN 1 AND 100
 OR val BETWEEN 50 AND 150;
 
+查询 优化的两种方法
+QUERY OPTIMIZATION
+启发式
+Heuristics / Rules
+→ Rewrite the query to remove stupid / inefficient things.
+→ These techniques may need to examine catalog, but they 
+do not need to examine data.
+消耗评价式
+Cost-based Search
+→ Use a model to estimate the cost of executing a plan.
+→ Evaluate multiple equivalent plans for a query and pick 
+the one with the lowest cost.
+
+
+
+计划枚举   消耗评价
+TODAY'S AGENDA
+Cost Estimation
+Plan Enumeration
+
+
+COST MODEL COMPONENTS
+物理消耗 主要是磁盘
+Choice #1: Physical Costs
+→ Predict CPU cycles, I/O, cache misses, RAM 
+consumption, pre-fetching, etc…
+→ Depends heavily on hardware.
+评估结果数据大小
+Choice #2: Logical Costs
+→ Estimate result sizes per operator.
+→ Independent of the operator algorithm.
+→ Need estimations for operator result sizes.
+评估实现算法
+Choice #3: Algorithmic Costs
+→ Complexity of the operator algorithm implementation.
+
+
+磁盘读写数据   磁盘顺序读写还是随机读写  影响大
+DISK-BASED DBMS COST MODEL
+The number of disk accesses will always dominate 
+the execution time of a query.
+→ CPU costs are negligible.
+→ Must consider sequential vs. random I/O.
+This is easier to model if the DBMS has full 
+control over buffer management.
+→ We will know the replacement strategy, pinning, and 
+assume exclusive access to disk.
+
+Uses a combination of CPU and I/O costs that are 
+weighted by “magic” constant factors.
+Default settings are obviously for a disk-resident 
+database without a lot of memory:
+→ Processing a tuple in memory is 400x faster than reading 
+a tuple from disk.
+→ Sequential I/O is 4x faster than random I/O.
+
+
+通过各种硬件参数来计算消耗
+IBM DB2 COST MODEL
+Database characteristics in system catalogs
+Hardware environment (microbenchmarks)
+Storage device characteristics (microbenchmarks)
+Communications bandwidth (distributed only)
+Memory resources (buffer pools, sort heaps)
+Concurrency Environment
+→ Average number of users
+→ Isolation level / blocking
+→ Number of available locks
+
+
+对计算做统计
+STATISTICS
+The DBMS stores internal statistics about tables, 
+attributes, and indexes in its internal catalog.
+Different systems update them at different times.
+Manual invocations:
+→ Postgres/SQLite: ANALYZE
+→ Oracle/MySQL: ANALYZE TABLE
+→ SQL Server: UPDATE STATISTICS
+→ DB2: RUNSTATS
+
+比如一个表里多少值 多少不同的值在属性里
+STATISTICS
+For each relation R, the DBMS maintains the 
+following information:
+→ NR
+: Number of tuples in R.
+→ V(A,R): Number of distinct values for attribute A.
+
+
+SELECTION CARDINALITY
+Assumption #1: Uniform Data
+→ The distribution of values (except for the heavy hitters) is 
+the same.
+Assumption #2: Independent Predicates
+→ The predicates on attributes are independent
+Assumption #3: Inclusion Principle
+→ The domain of join keys overlap such that each key in the 
+inner relation will also exist in the outer table.
+
+
+表内数据的分布情况统计
+COST ESTIMATIONS
+Our formulas are nice, but we assume that data 
+values are uniformly distributed.
+
+
+均匀分布   非均匀分布 决定执行时间
+
+别一个统计方法
+SKETCHES
+Probabilistic data structures that generate 
+approximate statistics about a data set.
+Cost-model can replace histograms with sketches 
+to improve its selectivity estimate accuracy.
+Most common examples:
+→ Count-Min Sketch (1988): Approximate frequency count 
+of elements in a set.
+→ HyperLogLog (2007): Approximate the number of 
+distinct elements in a set.
+
+评估where语句
+OBSERVATION
+Now that we can (roughly) estimate the selectivity 
+of predicates, what can we do with them?
+
+
+查询优化   枚举计划， 做比较
+QUERY OPTIMIZATION
+After performing rule-based rewriting, the DBMS 
+will enumerate different plans for the query and 
+estimate their costs.
+→ Single relation.
+→ Multiple relations.
+→ Nested sub-queries.
+It chooses the best plan it has seen for the query 
+after exhausting all plans or some timeout
+
+单关系优化方法
+SINGLE-REL ATION QUERY PLANNING
+Pick the best access method.
+→ Sequential Scan
+→ Binary Search (clustered indexes)
+→ Index Scan
+Predicate evaluation ordering.
+Simple heuristics are often good enough for this.
+OLTP queries are especially easy…
+
+
+Sargable is a word that concatenates the three words: search, argument and able. As per wikipedia SARGable is defined as “In relational databases, a condition (or predicate) in a query is said to be sargable if the DBMS engine can take advantage of an index to speed up the execution of the query
+
+
+多表查询   查询语法树
+MULTI-RELATION QUERY PLANNING
+As number of joins increases, number of 
+alternative plans grows rapidly
+→ We need to restrict search space.
+Fundamental decision in System R: only left-deep 
+join trees are considered.
+→ Modern DBMSs do not always make this assumption 
+anymore
+
+MULTI-REL ATION QUERY PL ANNING
+Fundamental decision in System R: Only consider 
+left-deep join trees.
+
+多表查询优化
+MULTI-REL ATION QUERY PLANNING
+评估顺序， 每个操作可以用什么优化， 每个表可以怎么优化
+Enumerate the orderings
+→ Example: Left-deep tree #1, Left-deep tree #2…
+Enumerate the plans for each operator
+→ Example: Hash, Sort-Merge, Nested Loop…
+Enumerate the access paths for each table
+→ Example: Index #1, Index #2, Seq Scan…
+Use dynamic programming to reduce the 
+number of cost estimations.
+
+
+候选计划
+CANDIDATE PLAN EXAMPLE
+How to generate plans for search 
+algorithm:
+枚举等价关系树
+→ Enumerate relation orderings
+枚举Join 交换枚举
+→ Enumerate join algorithm choices
+访问方法枚举  顺序  索引 等等
+→ Enumerate access method choices
+No real DBMSs does it this way.
+It’s actually more messy…
+
+举例
+POSTGRES OPTIMIZER
+Examines all types of join trees
+→ Left-deep, Right-deep, bushy
+Two optimizer implementations:
+→ Traditional Dynamic Programming Approach
+→ Genetic Query Optimizer (GEQO)
+Postgres uses the traditional algorithm when # of 
+tables in query is less than 12 and switches to 
+GEQO when there are 12 or more.
+
+
+事务  数据库第二难的东西
+Transactions!
+→ aka the second hardest part about database systems
+
 
