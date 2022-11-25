@@ -3737,4 +3737,639 @@ GEQO when there are 12 or more.
 Transactions!
 → aka the second hardest part about database systems
 
+同步机制和恢复机制  贯彻整个数据库
+A DBMS's concurrency control and 
+recovery components permeate 
+throughout the design of its entire 
+architecture
 
+条件竞争   事务丢失
+We both change the same record in a 
+table at the same time.
+How to avoid race condition?
+You transfer $100 between bank 
+accounts but there is a power failure.
+What is the correct database state?
+
+事务  是操作序列
+A transaction is the execution of a sequence of 
+one or more operations (e.g., SQL queries) on a 
+database to perform some higher-level function.
+事务例子
+查账号有没有100
+减100
+转到别的地方
+TRANSACTION EXAMPLE
+Move $100 from Andy' bank account to his 
+promotor's account.
+Transaction:
+→ Check whether Andy has $100.
+→ Deduct $100 from his account.
+→ Add $100 to his promotor account
+
+事务处理方法
+把事务的数据放在另一地方， 更新完， 放回去
+Execute each txn one-by-one (i.e., serial order) as 
+they arrive at the DBMS.
+→ One and only one txn can be running at the same time in 
+the DBMS.
+Before a txn starts, copy the entire database to a 
+new file and make all changes to that file.
+→ If the txn completes successfully, overwrite the original 
+file with the new one.
+→ If the txn fails, just remove the dirty copy.
+
+效率与正确的问题
+PROBLEM STATEMENT
+A (potentially) better approach is to allow 
+concurrent execution of independent transactions.
+Why do we want that?
+→ Better utilization/throughput
+→ Increased response times to users.
+But we also would like:
+→ Correctness
+→ Fairness
+
+事务的主要问题
+很难保障正确
+很难保障效率
+TRANSACTIONS
+Hard to ensure correctness…
+→ What happens if Andy only has $100 and tries to pay off 
+two promotors at the same time?
+Hard to execute quickly…
+→ What happens if Andy tries to pay off his gambling debts 
+at the exact same time?
+
+
+世界外的东西， 数据 库系统不太好完全保障
+DEFINITIONS
+A txn may carry out many operations on the data 
+retrieved from the database
+The DBMS is only concerned about what data is 
+read/written from/to the database.
+→ Changes to the "outside world" are beyond the scope of 
+the DBMS.
+
+
+FORMAL DEFINITIONS
+Database: A fixed set of named data objects (e.g., 
+A, B, C, …).
+→ We do not need to define what these objects are now.
+Transaction: A sequence of read and write 
+operations ( R(A), W(B), …)
+→ DBMS's abstract view of a user program
+
+
+
+CORRECTNESS CRITERIA: ACID
+原子性  多序列为一个整体  不能有中间状态
+Atomicity: All actions in the txn happen, or none happen.
+一致性
+Consistency: If each txn is consistent and the DB starts consistent, then it ends up consistent.
+事务之间要隔离， 预防冲突
+Isolation: Execution of one txn is isolated from 
+that of other txns.
+提交后，要持久化
+Durability: If a txn commits, its effects persist.
+
+
+CORRECTNESS CRITERIA: ACID
+Atomicity: “all or nothing”
+Consistency: “it looks correct to me”
+Isolation: “as if alone”
+Durability: “survive failures”
+
+原子性， 要么都执行  要么都没执行
+DBMS guarantees that txns are atomic. 
+→ From user's point of view: txn always either executes all 
+its actions or executes no actions at all.
+
+
+确保原子性的机制
+方法一  写Undo日志
+MECHANISMS FOR ENSURING ATOMICIT Y
+Approach #1: Logging
+→ DBMS logs all actions so that it can undo the actions of 
+aborted transactions.
+→ Maintain undo records both in memory and on disk.
+→ Think of this like the black box in airplanes…
+Logging is used by almost every DBMS.
+→ Audit Trail
+→ Efficiency Reasons
+
+原子性第二个方法是， page 拷一份， 当提交后才可见
+MECHANISMS FOR ENSURING ATOMICIT Y
+Approach #2: Shadow Paging
+→ DBMS makes copies of pages and txns make changes to 
+those copies. Only when the txn commits is the page 
+made visible to others.
+→ Originally from System R.
+Few systems do this:
+→ CouchDB
+→ LMDB (OpenLDAP)
+
+事务一致性   数据库一致性  主要是逻辑层面 
+CONSISTENCY
+The "world" represented by the database is 
+logically correct. All questions asked about the data 
+are given logically correct answers.
+Database Consistency
+Transaction Consistency
+
+
+事务一致性是应用用来保证。 数据库无能为力
+TRANSACTION CONSISTENCY
+If the database is consistent before the transaction 
+starts (running alone), it will also be consistent 
+after.
+Transaction consistency is the application's 
+responsibility. DBMS cannot control this.
+→ We won't discuss this issue further
+
+隔离性   如何保证同时进行的事务之间对对方事务数据不产生影响
+ISOLATION OF TRANSACTIONS
+Users submit txns, and each txn executes as if it 
+was running by itself.
+→ Easier programming model to reason about.
+But the DBMS achieves concurrency by 
+interleaving the actions (reads/writes of DB 
+objects) of txns.
+We need a way to interleave txns but still make it 
+appear as if they ran one-at-a-time.
+
+积极处理方法  与  消极处理方法
+消极 管死
+积极 出问题了再管
+MECHANISMS FOR ENSURING ISOL ATION
+A concurrency control protocol is how the 
+DBMS decides the proper interleaving of 
+operations from multiple transactions.
+Two categories of protocols:
+→ Pessimistic: Don't let problems arise in the first place.
+→ Optimistic: Assume conflicts are rare, deal with them 
+after they happen.
+
+例子 
+两个账号都有1000元
+事务一  A给B转100
+事务二  同时对A+B算利息
+Assume at first A and B each have $1000. 
+T1
+transfers $100 from A's account to B's
+T2
+credits both accounts with 6% interest.
+
+INTERLEAVING TRANSACTIONS
+We interleave txns to maximize concurrency.
+→ Slow disk/network I/O.
+→ Multi-core CPUs.
+When one txn stalls because of a resource (e.g., 
+page fault), another txn can continue executing 
+and make forward progress.
+
+定义冲突操作
+对同一对象， 两个事务去写
+CONFLICTING OPERATIONS
+We need a formal notion of equivalence that can 
+be implemented efficiently based on the notion of 
+"conflicting" operations
+Two operations conflict if:
+→ They are by different transactions, 
+→ They are on the same object and at least one of them is a write.
+
+冲突
+INTERLEAVED EXECUTION ANOMALIES
+读写
+Read-Write Conflicts (R-W)
+写读
+Write-Read Conflicts (W-R)
+写写
+Write-Write Conflicts (W-W)
+
+
+Unrepeatable Reads
+第一次读完， 另一个事务更新了它， 第二次读数据 变了
+
+
+WRITE-READ CONFLICTS
+Reading Uncommitted Data ("Dirty Reads")
+写读冲突
+第一个事务在改，第二个事务读了它了， 
+
+写写冲突， 写覆盖
+WRITE-WRITE CONFLICTS
+Overwriting Uncommitted Data
+
+序列化分类
+FORMAL PROPERTIES OF SCHEDULES
+Given these conflicts, we now can understand 
+what it means for a schedule to be serializable.
+→ This is to check whether schedules are correct.
+→ This is not how to generate a correct schedule.
+There are different levels of serializability:
+→ Conflict Serializability  大部分数据库支持
+→ View Serializability没有数据库能做到
+
+
+依赖图 DEPENDENCY GRAPHS
+来判断冲突
+
+
+SERIALIZABILIT Y
+In practice, Conflict Serializability is what 
+systems support because it can be enforced 
+efficiently.
+To allow more concurrency, some special cases get 
+handled separately at the application level.
+
+锁 保证事务要用锁
+Lock Types
+Two-Phase Locking
+Deadlock Detection + Prevention
+Hierarchical Locking
+Isolation Levels
+
+
+锁  共享锁    排它锁
+S-LOCK: Shared locks for reads.
+X-LOCK: Exclusive locks for writes.
+
+锁管理器
+EXECUTING WITH LOCKS
+Transactions request locks (or upgrades).
+Lock manager grants or blocks requests.
+Transactions release locks.
+Lock manager updates its internal lock-table.
+→ It keeps track of what transactions hold what locks and 
+what transactions are waiting to acquire any locks.
+
+两段锁   前边取锁  后边放锁
+Phase #1: Growing
+→ Each txn requests the locks that it needs from the DBMS’s 
+lock manager.
+→ The lock manager grants/denies lock requests.
+Phase #2: Shrinking
+→ The txn is allowed to only release locks that it previously 
+acquired. It cannot acquire new locks.
+
+
+
+STRONG STRICT TWO-PHASE LOCKING
+The txn is not allowed to acquire/upgrade locks 
+after the growing phase finishes.
+Allows only conflict serializable schedules, but it is 
+often stronger than needed for some apps.
+
+锁策略
+LOCK GRANULARITIES
+When a txn wants to acquire a "lock", the DBMS 
+can decide the granularity (i.e., scope) of that lock.
+→ Attribute? Tuple? Page? Table?
+The DBMS should ideally obtain fewest number of 
+locks that a txn needs.
+Trade-off between parallelism versus overhead.
+→ Fewer Locks, Larger Granularity vs. More Locks, Smaller
+Granularity.
+
+
+表锁   行锁   属性锁
+DATABASE LOCK HIERARCHY
+
+用时间控制秩序
+T/O CONCURRENCY CONTROL
+Use timestamps to determine the serializability 
+order of txns.
+
+
+多版本， 同一对象存在多个版本
+MULTI-VERSION CONCURRENCY CONTROL
+The DBMS maintains multiple physical versions 
+of a single logical object in the database:
+→ When a txn writes to an object, the DBMS creates a new 
+version of that object. 
+→ When a txn reads an object, it reads the newest version 
+that existed when the txn started.
+
+写读互不阻塞
+MULTI-VERSION CONCURRENCY CONTROL
+Writers do not block readers.
+Readers do not block writers.
+Read-only txns can read a consistent snapshot
+without acquiring locks.
+→ Use timestamps to determine visibility.
+Easily support time-travel queries
+
+积极并发控制
+拷务一份出来， 修正， 解决冲突， 合并
+Optimistic Concurrency Control
+• The DBMS creates a private workspace for each txn.
+▶ Any object read is copied into workspace.
+▶ Modifications are applied to workspace.
+• When a txn commits, the DBMS compares workspace write set to see whether it
+conflicts with other txns.
+• If there are no conflicts, the write set is installed into the global database.
+
+occ 过程
+• Phase 1 – Read:
+▶ Track the read/write sets of txns and store their writes in a private workspace.
+• Phase 2 – Validation:
+▶ When a txn commits, check whether it conflicts with other txns.
+• Phase 3 – Write:
+▶ If validation succeeds, apply private changes to database. Otherwise abort and restart the
+txn.
+
+• Multi-Version Concurrency Control
+• Design Decisions
+▶ Concurrency Control Protocol
+▶ Version Storage
+▶ Garbage Collection
+▶ Index Management
+
+
+The DBMS maintains multiple physical versions of a single logical object in the
+database:
+▶ When a txn writes to an object, the DBMS creates a new version of that object (instead of
+private workspace in OCC)
+▶ When a txn reads an object, it reads the newest version that existed when the txn started.
+
+
+DBMS Protocol Version Storage Garbage Collection Indexes
+Oracle MV2PL Delta Vacuum Logical
+Postgres MV-2PL/MV-TO Append-Only Vacuum Physical
+MySQL-InnoDB MV-2PL Delta Vacuum Logical
+HYRISE MV-OCC Append-Only – Physical
+Hekaton MV-OCC Append-Only Cooperative Physical
+MemSQL MV-OCC Append-Only Vacuum Physical
+SAP HANA MV-2PL Time-travel Hybrid Logical
+NuoDB MV-2PL Append-Only Vacuum Logical
+HyPer MV-OCC Delta Txn-level Logical
+
+多版本控制 
+MULTI-VERSION CONCURRENCY CONTROL
+• The DBMS maintains multiple physical versions of a single logical
+object in the database:
+• When a txn writes to an object, the DBMS creates a new version of that object.
+• When a txn reads an object, it reads the newest version that existed when the
+txn started.
+• First proposed in 1978 MIT PhD dissertation.
+• First implementation was InterBase (Firebird).
+• Used in almost every new DBMS in last 10 years.
+
+mvcc设计方法
+MVCC DESIGN DECISIONS
+同步控制   版本存储   垃圾回收  索引管理
+• Concurrency Control Protocol
+• Version Storage
+• Garbage Collection
+• Index Management
+
+同步控制 
+CONCURRENCY CONTROL PROTOCOL
+• Approach #1: Timestamp Ordering
+• Assign txns timestamps that determine serial order.
+• Considered to be original MVCC protocol.
+• Approach #2: Optimistic Concurrency Control
+• Three-phase protocol from last class.
+• Use private workspace for new versions.
+• Approach #3: Two-Phase Locking
+• Txns acquire appropriate lock on physical version before they
+can read/write a logical tuple.
+
+主要解决写不影响读， 读不影响写
+What is the difference between MVCC vs locking?
+Unlike traditional a DMBS, multiversion concurrency control does not lock a record when a write operation is about to occur. Instead, a new version of the record, with an incremented version number, is created.
+
+Users can continue to read the old version of the record while the new record is transitionally edited and updated. This eliminates the need for locks, and it eliminates contention and deadlock issues.
+
+主要解决不阻塞读的问题
+What Is Multiversion Concurrency Control?
+Multiversion Concurrency Control (MVCC) provides concurrent access to the database without locking the data so that readers do not block writers and writers do not block readers. MVCC improves the performance of database applications in a multiuser environment.
+MVCC provides each user connected to the database with a consistent point in time "snapshot" of the data. Other users of the database do not see any changes until the transaction is committed.
+Conceptually, MVCC is similar to row locking, but without the need for page or row read locks.
+When using MVCC, applications see better performance because no read locking is required; the application does not have to wait to acquire a lock.
+
+失败处理
+Failure Classification
+Buffer Pool Policies
+Shadow Paging
+Write-Ahead Log
+Logging Schemes
+Checkpoints
+
+失败分类   事务失败  系统出错  存储出错   
+FAILURE CLASSIFICATION
+Type #1 – Transaction Failures
+Type #2 – System Failures
+Type #3 – Storage Media Failures
+
+事物出错， 比如达到数据库限制  死锁等等
+TRANSACTION FAILURES
+Logical Errors:
+→ Transaction cannot complete due to some internal error 
+condition (e.g., integrity constraint violation).
+Internal State Errors:
+→ DBMS must terminate an active transaction due to an 
+error condition (e.g., deadlock).
+
+系统 出错
+SYSTEM FAILURES
+Software Failure:
+→ Problem with the OS or DBMS implementation (e.g., 
+uncaught divide-by-zero exception).
+Hardware Failure:
+→ The computer hosting the DBMS crashes (e.g., power 
+plug gets pulled).
+→ Fail-stop Assumption: Non-volatile storage contents are 
+assumed to not be corrupted by system crash
+
+存储出错
+STORAGE MEDIA FAILURE
+Non-Repairable Hardware Failure:
+→ A head crash or similar disk failure destroys all or part of 
+non-volatile storage.
+→ Destruction is assumed to be detectable (e.g., disk 
+controller use checksums to detect failures).
+No DBMS can recover from this! Database must 
+be restored from archived version.
+
+因为数据在内存处理中间状态可能会出错
+oBSERVATION
+The primary storage location of the database is on 
+non-volatile storage, but this is much slower than 
+volatile storage.
+Use volatile memory for faster access:
+→ First copy target record into memory.
+→ Perform the writes in memory.
+→ Write dirty records back to disk.
+
+重写与取消
+UNDO VS. REDO
+Undo: The process of removing the effects of an 
+incomplete or aborted txn.
+Redo: The process of re-instating the effects of a 
+committed txn for durability.
+How the DBMS supports this functionality 
+depends on how it manages the buffer pool…
+
+
+STEAL POLICY
+Whether the DBMS allows an uncommitted txn to 
+overwrite the most recent committed value of an 
+object in non-volatile storage.
+STEAL: Is allowed.
+NO-STEAL: Is not allowed.
+
+
+FORCE POLICY
+Whether the DBMS requires that all updates made 
+by a txn are reflected on non-volatile storage 
+before the txn can commit.
+FORCE: Is required.
+NO-FORCE: Is not required
+
+这个策略最好实现
+NO-STEAL + FORCE
+This approach is the easiest to implement:
+→ Never have to undo changes of an aborted txn because 
+the changes were not written to disk.
+→ Never have to redo changes of a committed txn because 
+all the changes are guaranteed to be written to disk at 
+commit time (assuming atomic hardware writes).
+Previous example cannot support write sets that 
+exceed the amount of physical memory available.
+
+复制页， 复制页， 更新， 更新完， 把指针指到新的， 旧的删除
+SHADOW PAGING
+To install the updates, overwrite the root so it 
+points to the shadow, thereby swapping the master 
+and shadow:
+→ Before overwriting the root, none of the txn's updates are 
+part of the disk-resident database 
+→ After overwriting the root, all the txn's updates are part 
+of the disk-resident database.
+
+
+取消日志， 重做没必要
+SHADOW PAGING UNDO/REDO
+Supporting rollbacks and recovery is easy.
+Undo: Remove the shadow pages. Leave the 
+master and the DB root pointer alone.
+Redo: Not needed at all.
+
+
+copy页的缺点
+SHADOW PAGING DISADVANTAGES
+Copying the entire page table is expensive:
+→ Use a page table structured like a B+tree.
+→ No need to copy entire tree, only need to copy paths in 
+the tree that lead to updated leaf nodes.
+Commit overhead is high:
+→ Flush every updated page, page table, and root.
+→ Data gets fragmented.
+→ Need garbage collection.
+→ Only supports one writer txn at a time or txns in a batch.
+
+
+
+写前日志
+WRITE-AHEAD LOG
+Maintain a log file separate from data files that 
+contains the changes that txns make to database.
+→ Assume that the log is on stable storage.
+→ Log contains enough information to perform the 
+necessary undo and redo actions to restore the database.
+DBMS must write to disk the log file records that 
+correspond to changes made to a database object 
+before it can flush that object to disk.
+Buffer Pool Policy: STEAL + NO-FORCE
+
+
+
+WAL PROTOCOL
+The DBMS stages all a txn's log records in volatile 
+storage (usually backed by buffer pool).
+All log records pertaining to an updated page are 
+written to non-volatile storage before the page 
+itself is over-written in non-volatile storage.
+A txn is not considered committed until all its log 
+records have been written to stable storage.
+
+
+日志格式
+WAL PROTOCOL
+Each log entry contains information about the 
+change to a single object:
+→ Transaction Id
+→ Object Id
+→ Before Value (UNDO)
+→ After Value (REDO）
+
+
+WAL IMPLEMENTATION
+When should the DBMS write log entries to disk?
+→ When the transaction commits.
+→ Can use group commit to batch multiple log flushes 
+together to amortize overhead.
+When should the DBMS write dirty records to disk?
+→ Every time the txn executes an update?
+→ Once when the txn commits?
+
+
+
+BUFFER POOL POLICIES
+Almost every DBMS uses NO-FORCE + STEAL
+
+日志策略
+LOGGING SCHEMES
+Physical Logging
+→ Record the changes made to a specific location in the 
+database.
+→ Example: git diff
+Logical Logging
+→ Record the high-level operations executed by txns.
+→ Not necessarily restricted to single page.
+→ Example: The UPDATE, DELETE, and INSERT queries 
+invoked by a txn.
+
+
+混合日志策略用的最多
+PHYSIOLOGICAL LOGGING
+Hybrid approach where log records target a single 
+page but do not specify organization of the page.
+→ Identify tuples based on their slot number.
+→ Allows DBMS to reorganize pages after a log record has 
+been written to disk.
+This is the most popular approach.
+
+
+CHECKPOINTS
+The WAL will grow forever.
+After a crash, the DBMS must replay the entire 
+log, which will take a long time.
+The DBMS periodically takes a checkpoint where 
+it flushes all buffers out to disk.
+
+恢复机制
+ARIES
+Algorithms for Recovery and 
+Isolation Exploiting Semantics
+Developed at IBM Research in early 
+1990s for the DB2 DBMS.
+Not all systems implement ARIES 
+exactly as defined in this paper but 
+they're close enough.
+
+
+
+ARIES MAIN IDEAS
+Write-Ahead Logging:
+→ Any change is recorded in log on stable storage before the 
+database change is written to disk.
+→ Must use STEAL + NO-FORCE buffer pool policies.
+Repeating History During Redo:
+→ On restart, retrace actions and restore database to exact 
+state before crash.
+Logging Changes During Undo:
+→ Record undo actions to log to ensure action is not 
+repeated in the event of repeated failures.
